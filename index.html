@@ -1,0 +1,1612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Password Manager</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background: #f5f5f5;
+        }
+
+        /* Top toolbar */
+        .toolbar {
+            background: white;
+            border-bottom: 1px solid #e0e0e0;
+            padding: 12px 16px;
+            display: flex;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .toolbar-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .toolbar-right {
+            display: flex;
+            gap: 8px;
+        }
+
+        .search-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .search-box {
+            width: 250px;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+            background: #f8f8f8;
+        }
+
+        .search-box:focus {
+            outline: none;
+            border-color: #2196f3;
+            background: white;
+        }
+
+        .search-box.active {
+            border-color: #4caf50;
+            background: #f0fff0;
+        }
+
+        .search-icon {
+            color: #666;
+            font-size: 16px;
+        }
+
+        .search-results-info {
+            font-size: 14px;
+            color: #666;
+            margin-left: 8px;
+        }
+
+        .toolbar button {
+            padding: 10px 18px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .toolbar .primary-btn {
+            background: #2196f3;
+            color: white;
+        }
+
+        .toolbar .primary-btn:hover {
+            background: #1976d2;
+        }
+
+        .toolbar .secondary-btn {
+            background: #f5f5f5;
+            color: #666;
+        }
+
+        .toolbar .secondary-btn:hover {
+            background: #e0e0e0;
+        }
+
+        /* Main content area */
+        .main-content {
+            flex: 1;
+            overflow: hidden;
+            background: white;
+        }
+
+        /* Password table container */
+        .password-table-container {
+            height: 100%;
+            overflow: auto;
+            padding: 16px;
+        }
+
+        .password-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 16px;
+        }
+
+        .password-table th {
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+            padding: 12px 8px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 16px;
+            color: #333;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .password-table td {
+            border: 1px solid #ddd;
+            padding: 12px 8px;
+            font-size: 16px;
+            vertical-align: middle;
+        }
+
+        .password-table tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+
+        .password-table tr:hover {
+            background: #f0f8ff;
+        }
+
+        /* Editable fields */
+        .editable-field {
+            border: none;
+            background: transparent;
+            width: 100%;
+            font-size: 16px;
+            padding: 4px;
+            border-radius: 3px;
+        }
+
+        .editable-field:focus {
+            outline: 2px solid #2196f3;
+            background: white;
+        }
+
+        .editable-field[readonly] {
+            background: transparent;
+            cursor: default;
+        }
+
+        .password-field {
+            font-family: 'Courier New', monospace;
+        }
+
+        /* Action buttons */
+        .action-btn {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 0 2px;
+            transition: all 0.2s;
+        }
+
+        .copy-btn {
+            background: #4caf50;
+            color: white;
+        }
+
+        .copy-btn:hover {
+            background: #388e3c;
+        }
+
+        .toggle-password-btn {
+            background: #ff9800;
+            color: white;
+        }
+
+        .toggle-password-btn:hover {
+            background: #f57c00;
+        }
+
+        .edit-btn {
+            background: #2196f3;
+            color: white;
+        }
+
+        .edit-btn:hover {
+            background: #1976d2;
+        }
+
+        .save-btn {
+            background: #4caf50;
+            color: white;
+        }
+
+        .save-btn:hover {
+            background: #388e3c;
+        }
+
+        .cancel-btn {
+            background: #9e9e9e;
+            color: white;
+        }
+
+        .cancel-btn:hover {
+            background: #757575;
+        }
+
+        .delete-btn {
+            background: #f44336;
+            color: white;
+        }
+
+        .delete-btn:hover {
+            background: #d32f2f;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #999;
+            padding: 40px;
+            font-size: 18px;
+        }
+
+        .field {
+            margin-bottom: 24px;
+        }
+
+        .field label {
+            display: block;
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .field-value {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .field input {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+            background: #f8f8f8;
+        }
+
+        .field input:focus {
+            outline: none;
+            border-color: #2196f3;
+            background: white;
+        }
+
+        .field input:not([readonly]) {
+            background: white;
+        }
+
+        .icon-btn {
+            width: 36px;
+            height: 36px;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .icon-btn:hover {
+            background: #f5f5f5;
+            border-color: #999;
+        }
+
+        .icon-btn:active {
+            transform: scale(0.95);
+        }
+
+        .detail-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 24px;
+        }
+
+        .detail-actions button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .edit-btn, .save-btn {
+            background: #2196f3;
+            color: white;
+        }
+
+        .edit-btn:hover, .save-btn:hover {
+            background: #1976d2;
+        }
+
+        .cancel-btn {
+            background: #f5f5f5;
+            color: #666;
+        }
+
+        .cancel-btn:hover {
+            background: #e0e0e0;
+        }
+
+        .delete-btn {
+            background: #f44336;
+            color: white;
+            margin-left: auto;
+        }
+
+        .delete-btn:hover {
+            background: #d32f2f;
+        }
+
+        h2 {
+            margin-bottom: 24px;
+            color: #333;
+        }
+
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 8px;
+            padding: 32px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+        }
+
+        .close-button {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #999;
+        }
+
+        .close-button:hover {
+            color: #666;
+        }
+
+        /* Settings specific */
+        .setting-item {
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .setting-item:last-child {
+            border-bottom: none;
+        }
+
+        .setting-item label {
+            display: block;
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+
+        .setting-item .description {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 8px;
+        }
+
+        .setting-item input[type="checkbox"] {
+            margin-right: 8px;
+        }
+
+        .setting-item input[type="text"],
+        .setting-item select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        /* New password form */
+        .form-field {
+            margin-bottom: 20px;
+        }
+
+        .form-field label {
+            display: block;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+
+        .form-field input[type="text"],
+        .form-field input[type="password"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .form-field input[type="file"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+        }
+
+        .form-field input:focus {
+            outline: none;
+            border-color: #2196f3;
+        }
+
+        .form-field .description {
+            font-size: 14px;
+            color: #666;
+            margin-top: 4px;
+        }
+
+        .form-field input[type="checkbox"] {
+            margin-right: 8px;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 24px;
+        }
+
+        .form-actions button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .form-actions .save-btn {
+            background: #2196f3;
+            color: white;
+        }
+
+        .form-actions .save-btn:hover {
+            background: #1976d2;
+        }
+
+        .form-actions .cancel-btn {
+            background: #f5f5f5;
+            color: #666;
+        }
+
+        .form-actions .cancel-btn:hover {
+            background: #e0e0e0;
+        }
+    </style>
+</head>
+<body>
+    <!-- Top toolbar -->
+    <div class="toolbar">
+        <div class="toolbar-left">
+            <div class="search-container">
+                <span class="search-icon">🔍</span>
+                <input type="text" class="search-box" id="searchBox" placeholder="Search passwords (regex supported)...">
+                <span class="search-results-info" id="searchResultsInfo"></span>
+            </div>
+        </div>
+        <div class="toolbar-right">
+            <button class="secondary-btn" id="settingsButton">⚙️ Settings</button>
+            <button class="primary-btn" id="addButton">➕ Add New</button>
+            <button class="secondary-btn" id="importButton">📤 Import</button>
+            <button class="secondary-btn" id="exportButton">📥 Export</button>
+        </div>
+    </div>
+
+    <!-- Main content area -->
+    <div class="main-content">
+        <div class="password-table-container">
+            <table class="password-table" id="passwordTable">
+                <thead>
+                    <tr>
+                        <th>Website</th>
+                        <th>Username</th>
+                        <th>Password</th>
+                        <th>Copy</th>
+                        <th>Show</th>
+                        <th>Edit</th>
+                        <th>Delete</th>
+                    </tr>
+                </thead>
+                <tbody id="passwordTableBody">
+                    <tr>
+                        <td colspan="7" class="empty-state">
+                            <p>Loading passwords...</p>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal" id="settingsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Settings</h2>
+                <button class="close-button" id="closeSettings">×</button>
+            </div>
+            
+            <div class="setting-item">
+                <label>Auto-lock timeout</label>
+                <p class="description">Lock password manager after inactivity</p>
+                <select id="autoLockTimeout">
+                    <option value="0">Never</option>
+                    <option value="5">5 minutes</option>
+                    <option value="15">15 minutes</option>
+                    <option value="30">30 minutes</option>
+                </select>
+            </div>
+            
+            <div class="setting-item">
+                <label>
+                    <input type="checkbox" id="showPasswordStrength">
+                    Show password strength indicators
+                </label>
+            </div>
+            
+            <div class="setting-item">
+                <label>
+                    <input type="checkbox" id="clipboardAutoClear">
+                    Clear clipboard after 30 seconds
+                </label>
+            </div>
+            
+            <div class="setting-item">
+                <label>
+                    <input type="checkbox" id="darkMode">
+                    Dark mode (coming soon)
+                </label>
+            </div>
+            
+            <div class="setting-item">
+                <label>Master Password Protection</label>
+                <p class="description">Encrypt your stored passwords with a master password</p>
+                <div id="masterPasswordSection">
+                    <div id="masterPasswordNotSet" style="display: none;">
+                        <input type="password" id="newMasterPassword" placeholder="Enter master password" style="width: 100%; margin-bottom: 8px;">
+                        <input type="password" id="confirmMasterPassword" placeholder="Confirm master password" style="width: 100%; margin-bottom: 8px;">
+                        <button type="button" id="setMasterPasswordBtn" style="background: #2196f3; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">Set Master Password</button>
+                        <p style="font-size: 12px; color: #666; margin-top: 8px;">⚠️ Warning: This password is not saved. You must remember it to access your passwords.</p>
+                    </div>
+                    <div id="masterPasswordSet" style="display: none;">
+                        <p style="color: #4caf50; font-weight: 500;">✅ Master password is set</p>
+                        <p style="font-size: 12px; color: #666;">Your passwords are encrypted and protected.</p>
+                        <div id="changePasswordSection" style="margin-top: 12px; display: none;">
+                            <input type="password" id="changeMasterPassword" placeholder="Enter new master password" style="width: 100%; margin-bottom: 8px;">
+                            <input type="password" id="confirmChangeMasterPassword" placeholder="Confirm new master password" style="width: 100%; margin-bottom: 8px;">
+                            <button type="button" id="changeMasterPasswordBtn" style="background: #ff9800; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin-right: 8px;">Change Master Password</button>
+                            <button type="button" id="cancelChangePasswordBtn" style="background: #f5f5f5; color: #666; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">Cancel</button>
+                            <p style="font-size: 12px; color: #666; margin-top: 8px;">⚠️ This will re-encrypt all your passwords with the new password.</p>
+                        </div>
+                        <div id="showChangePasswordBtn" style="margin-top: 12px;">
+                            <button type="button" id="showChangePasswordFormBtn" style="background: #2196f3; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">Change Master Password</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Master Password Unlock Modal -->
+    <div class="modal" id="masterPasswordModal" style="z-index: 2000;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>🔒 Enter Master Password</h2>
+            </div>
+            
+            <div class="form-field" style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px; padding: 12px; margin-bottom: 20px;">
+                <strong>🔐 Your passwords are encrypted.</strong> Please enter your master password to unlock them.
+            </div>
+            
+            <form id="masterPasswordForm">
+                <div class="form-field">
+                    <label for="masterPasswordInput">Master Password</label>
+                    <input type="password" id="masterPasswordInput" required placeholder="Enter your master password" autofocus>
+                    <p class="description">⚠️ This password is not saved anywhere. You must remember it.</p>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="save-btn">🔓 Unlock</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add New Password Modal -->
+    <div class="modal" id="addModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Add New Password</h2>
+                <button class="close-button" id="closeAdd">×</button>
+            </div>
+            
+            <form id="addForm">
+                <div class="form-field">
+                    <label for="newTitle">Account</label>
+                    <input type="text" id="newTitle" required placeholder="e.g., Google">
+                </div>
+                
+                <div class="form-field">
+                    <label for="newWebsite">Website</label>
+                    <input type="text" id="newWebsite" required placeholder="e.g., google.com">
+                </div>
+                
+                <div class="form-field">
+                    <label for="newUsername">Username</label>
+                    <input type="text" id="newUsername" required placeholder="e.g., user@gmail.com">
+                </div>
+                
+                <div class="form-field">
+                    <label for="newPassword">Password</label>
+                    <input type="password" id="newPassword" required placeholder="Enter password">
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" class="cancel-btn" id="cancelAdd">Cancel</button>
+                    <button type="submit" class="save-btn">Save Password</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Import Modal -->
+    <div class="modal" id="importModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Import Passwords</h2>
+                <button class="close-button" id="closeImport">×</button>
+            </div>
+            
+            <div class="form-field" style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px; padding: 12px; margin-bottom: 20px;">
+                <strong>⚠️ Warning:</strong> Importing these passwords will overwrite your current password save file. All existing passwords will be replaced.
+            </div>
+            
+            <form id="importForm">
+                <div class="form-field">
+                    <label for="importFile">Select export file</label>
+                    <input type="file" id="importFile" accept=".json,.yaml,.yml" required>
+                    <p class="description">Import passwords from a JSON or YAML file exported by this app</p>
+                </div>
+
+                 <div class="form-field">
+                    <label for="importPassword">Input file password</label>
+                    <input type="password" id="importPassword" >
+                    <p class="description">encryption password for data backup</p>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" class="cancel-btn" id="cancelImport">Cancel</button>
+                    <button type="submit" class="save-btn">Import & Overwrite</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <!-- Save Modal -->
+    <div class="modal" id="exportModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Export Passwords</h2>
+                <button class="close-button" id="closeExportButton">×</button>
+            </div>
+            <form id="exportForm">
+                 <div class="form-field">
+                    <label for="exportPassword">Input file password</label>
+                    <input type="password" id="exportPassword" required>
+                    <p class="description">encryption password for data backup</p>
+                </div>
+               
+                <div class="form-actions">
+                    <button type="button" class="cancel-btn" id="cancelExportButton">Cancel</button>
+                    <button type="submit" class="save-btn">Export data</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
+
+
+    <script>
+
+        // UI Controller - handles all UI interactions
+        class PasswordUI {
+            constructor() {
+                this.selectedId = null;
+                this.passwordVisibility = {}; // Track visibility state per password
+                this.editMode = false; // Track edit mode
+                this.settings = {}; // Will be loaded async
+                this.isUnlocked = false; // Track if app is unlocked
+                this.currentSearchQuery = ''; // Track current search query
+                this.allPasswords = []; // Store all passwords for filtering
+                
+                this.init();
+            }
+
+            async init() {
+                await this.loadAndApplySettings();
+                await this.checkPasswordStatusAndUnlock();
+                this.attachEventListeners();
+            }
+            
+            async loadAndApplySettings() {
+                this.settings = await this.loadSettings();
+                this.applySettings();
+            }
+            
+            // Check password protection status and handle unlock flow
+            async checkPasswordStatusAndUnlock() {
+                try {
+                    const passwordData = await window.electronAPI.checkPasswordData();
+                    
+                    console.log('=== UI PASSWORD CHECK ===');
+                    console.log('Password data received:', passwordData);
+                    
+                    if (!passwordData.success) {
+                        throw new Error(passwordData.error);
+                    }
+                    
+                    if (passwordData.needs_password) {
+                        // Master password is required - show unlock modal
+                        this.showMasterPasswordModal();
+                        return;
+                    } else if (passwordData.password_set && !passwordData.has_encrypted) {
+                        // Password was set but no encrypted data found - error state
+                        alert('Error: Password protection is enabled but no encrypted password data was found. Please check your installation.');
+                        return;
+                    } else if (!passwordData.password_set) {
+                        // No master password set - load normally
+                        this.isUnlocked = true;
+                        await this.renderPasswordList();
+                    } else if (passwordData.password_set && passwordData.has_plain) {
+                        // This should not happen after our cleanup, but handle it
+                        console.warn('Unexpected state: master password set but plain passwords available');
+                        this.showMasterPasswordModal();
+                        return;
+                    } else {
+                        // Fallback - should not reach here
+                        console.warn('Unexpected password state:', passwordData);
+                        this.showMasterPasswordModal();
+                        return;
+                    }
+                } catch (error) {
+                    console.error('Failed to check password status:', error);
+                    alert(`Error checking password protection: ${error.message}`);
+                }
+            }
+            
+            // Show master password unlock modal
+            showMasterPasswordModal() {
+                this.toggleModal('masterPasswordModal', true);
+                // Focus password input after modal is shown
+                setTimeout(() => {
+                    const input = document.getElementById('masterPasswordInput');
+                    if (input) input.focus();
+                }, 100);
+            }
+            
+            // Handle master password unlock
+            async unlockWithMasterPassword(password) {
+                try {
+                    const result = await window.electronAPI.unlockWithMasterPassword(password);
+                    
+                    if (result.success) {
+                        this.isUnlocked = true;
+                        this.toggleModal('masterPasswordModal', false);
+                        document.getElementById('masterPasswordForm').reset();
+                        await this.renderPasswordList();
+                        
+                        // Update master password UI to show change password option
+                        this.updateMasterPasswordUI();
+                        
+                        // Show success message
+                        alert('✅ Successfully unlocked! Your passwords are now accessible.');
+                    } else {
+                        throw new Error(result.error || 'Failed to unlock');
+                    }
+                } catch (error) {
+                    console.error('Failed to unlock:', error);
+                    alert(`❌ Failed to unlock: ${error.message}`);
+                    
+                    // Clear password input and refocus
+                    const input = document.getElementById('masterPasswordInput');
+                    if (input) {
+                        input.value = '';
+                        input.focus();
+                    }
+                }
+            }
+            
+            // Handle setting master password
+            async setMasterPassword(password, confirmPassword) {
+                try {
+                    if (password !== confirmPassword) {
+                        throw new Error('Passwords do not match');
+                    }
+                    
+                    if (password.length < 6) {
+                        throw new Error('Master password must be at least 6 characters long');
+                    }
+                    
+                    const result = await window.electronAPI.setMasterPassword(password);
+                    
+                    if (result.success) {
+                        // Update settings display
+                        this.settings.password_set = true;
+                        this.updateMasterPasswordUI();
+                        
+                        // Clear form
+                        document.getElementById('newMasterPassword').value = '';
+                        document.getElementById('confirmMasterPassword').value = '';
+                        
+                        alert('✅ Master password set successfully! Your passwords are now encrypted and protected.');
+                    } else {
+                        throw new Error(result.error || 'Failed to set master password');
+                    }
+                } catch (error) {
+                    console.error('Failed to set master password:', error);
+                    alert(`❌ Failed to set master password: ${error.message}`);
+                }
+            }
+            
+            // Handle changing master password (when passwords are in memory)
+            async changeMasterPassword(newPassword, confirmPassword) {
+                try {
+                    if (newPassword !== confirmPassword) {
+                        throw new Error('Passwords do not match');
+                    }
+                    
+                    if (newPassword.length < 6) {
+                        throw new Error('Master password must be at least 6 characters long');
+                    }
+                    
+                    const result = await window.electronAPI.resetMasterPassword(newPassword);
+                    
+                    if (result.success) {
+                        // Clear form and hide change password section
+                        document.getElementById('changeMasterPassword').value = '';
+                        document.getElementById('confirmChangeMasterPassword').value = '';
+                        this.hideChangePasswordForm();
+                        
+                        alert('✅ Master password changed successfully! All passwords have been re-encrypted with the new password.');
+                    } else {
+                        throw new Error(result.error || 'Failed to change master password');
+                    }
+                } catch (error) {
+                    console.error('Failed to change master password:', error);
+                    alert(`❌ Failed to change master password: ${error.message}`);
+                }
+            }
+            
+            // Show change password form
+            showChangePasswordForm() {
+                document.getElementById('changePasswordSection').style.display = 'block';
+                document.getElementById('showChangePasswordBtn').style.display = 'none';
+            }
+            
+            // Hide change password form
+            hideChangePasswordForm() {
+                document.getElementById('changePasswordSection').style.display = 'none';
+                document.getElementById('showChangePasswordBtn').style.display = 'block';
+                
+                // Clear form fields
+                document.getElementById('changeMasterPassword').value = '';
+                document.getElementById('confirmChangeMasterPassword').value = '';
+            }
+            
+            // Update master password UI based on current state
+            updateMasterPasswordUI() {
+                const notSetDiv = document.getElementById('masterPasswordNotSet');
+                const setDiv = document.getElementById('masterPasswordSet');
+                const showChangePasswordBtn = document.getElementById('showChangePasswordBtn');
+                
+                if (this.settings.password_set) {
+                    notSetDiv.style.display = 'none';
+                    setDiv.style.display = 'block';
+                    
+                    // Only show change password option if passwords are unlocked (in memory)
+                    if (this.isUnlocked && showChangePasswordBtn) {
+                        showChangePasswordBtn.style.display = 'block';
+                    } else if (showChangePasswordBtn) {
+                        showChangePasswordBtn.style.display = 'none';
+                    }
+                } else {
+                    notSetDiv.style.display = 'block';
+                    setDiv.style.display = 'none';
+                }
+            }
+
+            // Load settings from YAML file
+            async loadSettings() {
+                try {
+                    return await window.electronAPI.getSettings();
+                } catch (error) {
+                    console.error('Failed to load settings:', error);
+                    return {
+                        autoLockTimeout: '15',
+                        showPasswordStrength: false,
+                        clipboardAutoClear: true,
+                        darkMode: false
+                    };
+                }
+            }
+
+            // Apply settings to UI
+            applySettings() {
+                // Apply settings to form elements
+                document.getElementById('autoLockTimeout').value = this.settings.autoLockTimeout;
+                document.getElementById('showPasswordStrength').checked = this.settings.showPasswordStrength;
+                document.getElementById('clipboardAutoClear').checked = this.settings.clipboardAutoClear;
+                document.getElementById('darkMode').checked = this.settings.darkMode;
+                
+                // Update master password UI
+                this.updateMasterPasswordUI();
+            }
+
+            // Save settings to YAML file
+            async saveSettings() {
+                this.settings = {
+                    autoLockTimeout: document.getElementById('autoLockTimeout').value,
+                    showPasswordStrength: document.getElementById('showPasswordStrength').checked,
+                    clipboardAutoClear: document.getElementById('clipboardAutoClear').checked,
+                    darkMode: document.getElementById('darkMode').checked
+                };
+                
+                try {
+                    const success = await window.electronAPI.saveSettings(this.settings);
+                    if (success) {
+                        console.log('Settings saved to YAML file:', this.settings);
+                    } else {
+                        alert('Failed to save settings');
+                    }
+                } catch (error) {
+                    console.error('Failed to save settings:', error);
+                    alert('Failed to save settings');
+                }
+            }
+
+            // Toggle modal visibility
+            toggleModal(modalId, show) {
+                const modal = document.getElementById(modalId);
+                modal.classList.toggle('active', show);
+            }
+
+            // Add new password
+            async addNewPassword(passwordData) {
+                try {
+                    const newPassword = await window.electronAPI.addPassword(passwordData);
+                    
+                    // Refresh UI
+                    await this.renderPasswordList();
+                    
+                    // Clear form
+                    document.getElementById('addForm').reset();
+                    this.toggleModal('addModal', false);
+                } catch (error) {
+                    console.error('Failed to add password:', error);
+                    alert('Failed to add password');
+                }
+            }
+
+            // Filter passwords based on search query using regex
+            filterPasswords(passwords, searchQuery) {
+                if (!searchQuery.trim()) {
+                    return passwords;
+                }
+                
+                try {
+                    // Treat the search query as a regular expression
+                    const regex = new RegExp(searchQuery, 'i'); // Case-insensitive by default
+                    
+                    return passwords.filter(password => {
+                        // Search in website, title, and username fields
+                        const searchableText = [
+                            password.website || '',
+                            password.title || '',
+                            password.username || ''
+                        ].join(' ');
+                        
+                        return regex.test(searchableText);
+                    });
+                } catch (error) {
+                    // If regex is invalid, fall back to simple string matching
+                    console.warn('Invalid regex pattern, falling back to string search:', error);
+                    const lowerQuery = searchQuery.toLowerCase();
+                    
+                    return passwords.filter(password => {
+                        const searchableText = [
+                            password.website || '',
+                            password.title || '',
+                            password.username || ''
+                        ].join(' ').toLowerCase();
+                        
+                        return searchableText.includes(lowerQuery);
+                    });
+                }
+            }
+
+            // Render the password table
+            async renderPasswordList() {
+                try {
+                    const tableBody = document.getElementById('passwordTableBody');
+                    this.allPasswords = await window.electronAPI.getPasswords();
+                    
+                    // Filter passwords based on current search query
+                    const filteredPasswords = this.filterPasswords(this.allPasswords, this.currentSearchQuery);
+                    
+                    if (filteredPasswords.length === 0) {
+                        const message = this.currentSearchQuery.trim() ? 
+                            'No passwords match your search. Try a different search term or regex pattern.' :
+                            'No passwords found. Click "Add New" to create your first password.';
+                        
+                        tableBody.innerHTML = `
+                            <tr>
+                                <td colspan="7" class="empty-state">
+                                    <p>${message}</p>
+                                </td>
+                            </tr>
+                        `;
+                    } else {
+                        tableBody.innerHTML = filteredPasswords.map(password => this.generatePasswordRow(password)).join('');
+                    }
+                } catch (error) {
+                    console.error('Failed to render password table:', error);
+                    const tableBody = document.getElementById('passwordTableBody');
+                    tableBody.innerHTML = `
+                        <tr>
+                            <td colspan="7" class="empty-state">
+                                <p>Error loading passwords</p>
+                            </td>
+                        </tr>
+                    `;
+                }
+            }
+
+            // Generate HTML for a single password row
+            generatePasswordRow(password) {
+                const isEditing = this.editMode && this.selectedId === password.id;
+                const isPasswordVisible = this.passwordVisibility[password.id] || false;
+                const displayPassword = isPasswordVisible ? password.password : '••••••••';
+                
+                return `
+                    <tr data-id="${password.id}">
+                        <td>
+                            <input type="text" 
+                                   class="editable-field" 
+                                   value="${this.escapeHtml(password.website)}" 
+                                   data-field="website"
+                                   ${isEditing ? '' : 'readonly'}>
+                        </td>
+                        <td>
+                            <input type="text" 
+                                   class="editable-field" 
+                                   value="${this.escapeHtml(password.username)}" 
+                                   data-field="username"
+                                   ${isEditing ? '' : 'readonly'}>
+                        </td>
+                        <td>
+                            <input type="${isPasswordVisible ? 'text' : 'password'}" 
+                                   class="editable-field password-field" 
+                                   value="${this.escapeHtml(password.password)}" 
+                                   data-field="password"
+                                   ${isEditing ? '' : 'readonly'}>
+                        </td>
+                        <td>
+                            <button class="action-btn copy-btn" 
+                                    onclick="passwordUI.copyPassword(${password.id})"
+                                    title="Copy password to clipboard">
+                                📋
+                            </button>
+                        </td>
+                        <td>
+                            <button class="action-btn toggle-password-btn" 
+                                    onclick="passwordUI.togglePasswordVisibility(${password.id})"
+                                    title="Toggle password visibility">
+                                ${isPasswordVisible ? '🙈' : '👁️'}
+                            </button>
+                        </td>
+                        <td>
+                            ${isEditing ? `
+                                <button class="action-btn save-btn" 
+                                        onclick="passwordUI.savePassword(${password.id})"
+                                        title="Save changes">
+                                    💾
+                                </button>
+                                <button class="action-btn cancel-btn" 
+                                        onclick="passwordUI.cancelEdit()"
+                                        title="Cancel editing">
+                                    ❌
+                                </button>
+                            ` : `
+                                <button class="action-btn edit-btn" 
+                                        onclick="passwordUI.editPassword(${password.id})"
+                                        title="Edit password">
+                                    ✏️
+                                </button>
+                            `}
+                        </td>
+                        <td>
+                            <button class="action-btn delete-btn" 
+                                    onclick="passwordUI.deletePassword(${password.id})"
+                                    title="Delete password">
+                                🗑️
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }
+
+            // Escape HTML to prevent XSS
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            // Handle search input
+            handleSearch(searchQuery) {
+                this.currentSearchQuery = searchQuery;
+                const searchBox = document.getElementById('searchBox');
+                const searchResultsInfo = document.getElementById('searchResultsInfo');
+                
+                // Update search box appearance
+                if (searchQuery.trim()) {
+                    searchBox.classList.add('active');
+                } else {
+                    searchBox.classList.remove('active');
+                }
+                
+                this.renderPasswordList();
+                
+                // Update search results info
+                const filteredPasswords = this.filterPasswords(this.allPasswords, this.currentSearchQuery);
+                if (searchQuery.trim()) {
+                    const totalCount = this.allPasswords.length;
+                    const filteredCount = filteredPasswords.length;
+                    searchResultsInfo.textContent = `${filteredCount} of ${totalCount} passwords`;
+                } else {
+                    searchResultsInfo.textContent = '';
+                }
+                
+                // If a password was being edited but is no longer visible due to search, cancel edit
+                if (this.editMode && this.selectedId) {
+                    const stillVisible = filteredPasswords.some(p => p.id === this.selectedId);
+                    if (!stillVisible) {
+                        this.cancelEdit();
+                    }
+                }
+            }
+
+            // Edit password inline
+            editPassword(id) {
+                // Cancel any existing edit
+                this.cancelEdit();
+                
+                this.editMode = true;
+                this.selectedId = id;
+                this.renderPasswordList();
+            }
+
+            // Save edited password
+            async savePassword(id) {
+                try {
+                    const row = document.querySelector(`tr[data-id="${id}"]`);
+                    if (!row) return;
+                    
+                    const website = row.querySelector('[data-field="website"]').value;
+                    const username = row.querySelector('[data-field="username"]').value;
+                    const password = row.querySelector('[data-field="password"]').value;
+                    
+                    const updatedData = { website, username, password };
+                    await window.electronAPI.updatePassword(id, updatedData);
+                    
+                    this.editMode = false;
+                    this.selectedId = null;
+                    await this.renderPasswordList();
+                } catch (error) {
+                    console.error('Failed to save password:', error);
+                    alert('Failed to save password');
+                }
+            }
+
+            // Cancel edit
+            cancelEdit() {
+                this.editMode = false;
+                this.selectedId = null;
+                this.renderPasswordList();
+            }
+
+            // Toggle password visibility
+            togglePasswordVisibility(id) {
+                this.passwordVisibility[id] = !this.passwordVisibility[id];
+                this.renderPasswordList();
+            }
+
+            // Copy password to clipboard
+            async copyPassword(id) {
+                try {
+                    const password = this.allPasswords.find(p => p.id === id);
+                    if (!password) return;
+                    
+                    await navigator.clipboard.writeText(password.password);
+                    
+                    // Visual feedback
+                    const button = document.querySelector(`tr[data-id="${id}"] .copy-btn`);
+                    const originalText = button.innerHTML;
+                    button.innerHTML = '✅';
+                    setTimeout(() => {
+                        button.innerHTML = originalText;
+                    }, 2000);
+                } catch (err) {
+                    console.error('Failed to copy password:', err);
+                    alert('Failed to copy password');
+                }
+            }
+
+            // Delete password
+            async deletePassword(id) {
+                const password = this.allPasswords.find(p => p.id === id);
+                if (!password) return;
+                
+                if (confirm(`Are you sure you want to delete the password for ${password.website}?`)) {
+                    try {
+                        await window.electronAPI.deletePassword(id);
+                        
+                        // If this password was being edited, cancel edit
+                        if (this.editMode && this.selectedId === id) {
+                            this.cancelEdit();
+                        }
+                        
+                        await this.renderPasswordList();
+                    } catch (error) {
+                        console.error('Failed to delete password:', error);
+                        alert('Failed to delete password');
+                    }
+                }
+            }
+
+            // Export passwords to encrypted JSON format
+            async exportToJSON(encryption_password) {
+                try {
+                    const passwords = await window.electronAPI.getPasswords();
+                    const exportData = {
+                        passwords: passwords,
+                        exported_at: new Date().toISOString(),
+                        version: '1.0',
+                        format: 'json'
+                    };
+                    
+                    const jsonString = JSON.stringify(exportData, null, 2);
+                    var fileContent = jsonString;
+                    
+                    // Encrypt if password provided
+                    if (encryption_password && encryption_password.trim()) {
+                        const encryptResult = await window.electronAPI.encryptData(jsonString, encryption_password);
+                        if (encryptResult.success) {
+                            fileContent = encryptResult.encrypted;
+                        } else {
+                            throw new Error(encryptResult.error || 'Encryption failed');
+                        }
+                    }
+                    
+                    // Generate filename with timestamp
+                    const timestamp = new Date().toISOString().split('T')[0];
+                    const filename = `syncpass_passwords_${timestamp}.json`;
+                    
+                    // Save to desktop using IPC
+                    const result = await window.electronAPI.saveToDesktop(filename, fileContent);
+                    
+                    if (result.success) {
+                        // Close modal and reset form
+                        this.toggleModal('exportModal', false);
+                        document.getElementById('exportForm').reset();
+                        
+                        // Visual feedback
+                        const exportBtn = document.getElementById('exportButton');
+                        const originalText = exportBtn.innerHTML;
+                        exportBtn.innerHTML = '✅ Saved to Desktop!';
+                        setTimeout(() => {
+                            exportBtn.innerHTML = originalText;
+                        }, 3000);
+                        
+                        alert(`Passwords exported successfully!\\nSaved to: ${result.path}`);
+                    } else {
+                        throw new Error(result.error || 'Unknown error');
+                    }
+                } catch (error) {
+                    console.error('Failed to export passwords:', error);
+                    alert(`Failed to export passwords: ${error.message}`);
+                }
+            }
+
+            // Simple YAML converter for password data
+            convertToYAML(passwords) {
+                let yaml = 'passwords:\n';
+                
+                passwords.forEach(pwd => {
+                    yaml += `  - id: ${pwd.id}\n`;
+                    yaml += `    title: "${pwd.title}"\n`;
+                    yaml += `    website: "${pwd.website}"\n`;
+                    yaml += `    username: "${pwd.username}"\n`;
+                    yaml += `    password: "${pwd.password}"\n`;
+                });
+                
+                yaml += `\nexported_at: ${new Date().toISOString()}\n`;
+                yaml += `version: 1.0\n`;
+                
+                return yaml;
+            }
+
+            // Import passwords from JSON or YAML
+            async importPasswords(fileContent, importPassword) {
+                try {
+                    var plaintext = fileContent;
+                    
+                    // Decrypt if password provided
+                    if (importPassword && importPassword.trim()) {
+                        const decryptResult = await window.electronAPI.decryptData(fileContent, importPassword);
+                        if (decryptResult.success) {
+                            plaintext = decryptResult.decrypted;
+                        } else {
+                            throw new Error(decryptResult.error || 'Decryption failed');
+                        }
+                    }
+                    
+                    let passwords;
+                    
+                    // Try to parse as JSON first
+                    try {
+                        const jsonData = JSON.parse(plaintext);
+                        if (jsonData.passwords && Array.isArray(jsonData.passwords)) {
+                            passwords = jsonData.passwords;
+                        } else {
+                            throw new Error('Invalid JSON format');
+                        }
+                    } catch (jsonError) {
+                        // If JSON parsing fails, try YAML
+                        try {
+                            passwords = this.parseYAML(plaintext);
+                        } catch (yamlError) {
+                            throw new Error('File format not recognized. Please use a valid JSON or YAML export file.');
+                        }
+                    }
+                    
+                    if (!passwords || passwords.length === 0) {
+                        throw new Error('No passwords found in the file');
+                    }
+                    
+                    // Always overwrite - replace all passwords
+                    await window.electronAPI.setPasswords(passwords);
+                    
+                    // Refresh UI
+                    await this.renderPasswordList();
+                    this.toggleModal('importModal', false);
+                    document.getElementById('importForm').reset();
+                    
+                    alert(`Successfully imported ${passwords.length} passwords. Previous passwords have been overwritten.`);
+                } catch (err) {
+                    console.error('Import failed:', err);
+                    alert(`Import failed: ${err.message}`);
+                }
+            }
+
+            // Parse YAML content (simple parser for our format)
+            parseYAML(yaml) {
+                const passwords = [];
+                const lines = yaml.split('\n');
+                let currentPassword = null;
+                
+                lines.forEach(line => {
+                    const trimmed = line.trim();
+                    
+                    if (trimmed.startsWith('- id:')) {
+                        if (currentPassword) passwords.push(currentPassword);
+                        currentPassword = { id: parseInt(trimmed.split(':')[1].trim()) };
+                    } else if (currentPassword && trimmed.includes(':')) {
+                        const colonIndex = trimmed.indexOf(':');
+                        const key = trimmed.substring(0, colonIndex).trim();
+                        const value = trimmed.substring(colonIndex + 1).trim();
+                        
+                        if (['title', 'website', 'username', 'password'].includes(key)) {
+                            // Remove quotes if present
+                            currentPassword[key] = value.replace(/^["']|["']$/g, '');
+                        }
+                    }
+                });
+                
+                if (currentPassword) passwords.push(currentPassword);
+                return passwords;
+            }
+
+
+            // Attach event listeners for the main UI
+            attachEventListeners() {
+                const searchBox = document.getElementById('searchBox');
+                const exportBtn = document.getElementById('exportButton');
+                const importBtn = document.getElementById('importButton');
+                const settingsBtn = document.getElementById('settingsButton');
+                const addBtn = document.getElementById('addButton');
+                const closeSettingsBtn = document.getElementById('closeSettings');
+                const closeAddBtn = document.getElementById('closeAdd');
+                const closeImportBtn = document.getElementById('closeImport');
+                const closeExportBtn = document.getElementById('closeExportButton');
+                const cancelAddBtn = document.getElementById('cancelAdd');
+                const cancelImportBtn = document.getElementById('cancelImport');
+                const cancelExportBtn = document.getElementById('cancelExportButton');
+                const settingsModal = document.getElementById('settingsModal');
+                const addModal = document.getElementById('addModal');
+                const importModal = document.getElementById('importModal');
+                const exportModal = document.getElementById('exportModal');
+                const addForm = document.getElementById('addForm');
+                const importForm = document.getElementById('importForm');
+                const exportForm = document.getElementById('exportForm');
+
+                // Search functionality
+                searchBox.addEventListener('input', (e) => {
+                    this.handleSearch(e.target.value);
+                });
+
+                // Clear search on Escape key
+                searchBox.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape') {
+                        e.target.value = '';
+                        this.handleSearch('');
+                    }
+                });
+                
+                // Toolbar buttons
+                exportBtn.addEventListener('click', () => this.toggleModal('exportModal', true));
+                importBtn.addEventListener('click', () => this.toggleModal('importModal', true));
+                settingsBtn.addEventListener('click', () => this.toggleModal('settingsModal', true));
+                addBtn.addEventListener('click', () => this.toggleModal('addModal', true));
+                
+                // Modal close buttons
+                closeSettingsBtn.addEventListener('click', () => this.toggleModal('settingsModal', false));
+                closeAddBtn.addEventListener('click', () => this.toggleModal('addModal', false));
+                closeImportBtn.addEventListener('click', () => this.toggleModal('importModal', false));
+                closeExportBtn.addEventListener('click', () => this.toggleModal('exportModal', false));
+                cancelAddBtn.addEventListener('click', () => this.toggleModal('addModal', false));
+                cancelImportBtn.addEventListener('click', () => this.toggleModal('importModal', false));
+                cancelExportBtn.addEventListener('click', () => this.toggleModal('exportModal', false));
+             
+                // Close modals on background click
+                [settingsModal, addModal, importModal, exportModal].forEach(modal => {
+                    modal.addEventListener('click', (e) => {
+                        if (e.target === modal) {
+                            this.toggleModal(modal.id, false);
+                        }
+                    });
+                });
+                
+                // Save settings on change
+                const settingsInputs = settingsModal.querySelectorAll('input, select');
+                settingsInputs.forEach(input => {
+                    input.addEventListener('change', () => this.saveSettings());
+                });
+                
+                // Handle add form submission
+                addForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const formData = {
+                        title: document.getElementById('newTitle').value,
+                        website: document.getElementById('newWebsite').value,
+                        username: document.getElementById('newUsername').value,
+                        password: document.getElementById('newPassword').value
+                    };
+                    await this.addNewPassword(formData);
+                });
+                
+                // Handle import form submission
+                importForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const file = document.getElementById('importFile').files[0];
+                    if (!file) {
+                        alert('Please select a file');
+                        return;
+                    }
+                    
+                    const content = await file.text();
+                    const password = document.getElementById('importPassword').value;  
+                    await this.importPasswords(content, password);
+                });
+                // Handle export form submission
+                exportForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const password = document.getElementById('exportPassword').value;
+                    await this.exportToJSON(password);
+                });
+
+                // Handle master password unlock form submission
+                const masterPasswordForm = document.getElementById('masterPasswordForm');
+                masterPasswordForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const password = document.getElementById('masterPasswordInput').value;
+                    await this.unlockWithMasterPassword(password);
+                });
+
+                // Handle set master password button
+                const setMasterPasswordBtn = document.getElementById('setMasterPasswordBtn');
+                setMasterPasswordBtn.addEventListener('click', async () => {
+                    const password = document.getElementById('newMasterPassword').value;
+                    const confirmPassword = document.getElementById('confirmMasterPassword').value;
+                    await this.setMasterPassword(password, confirmPassword);
+                });
+
+                // Handle show change password form button
+                const showChangePasswordFormBtn = document.getElementById('showChangePasswordFormBtn');
+                showChangePasswordFormBtn.addEventListener('click', () => {
+                    this.showChangePasswordForm();
+                });
+
+                // Handle change master password button
+                const changeMasterPasswordBtn = document.getElementById('changeMasterPasswordBtn');
+                changeMasterPasswordBtn.addEventListener('click', async () => {
+                    const newPassword = document.getElementById('changeMasterPassword').value;
+                    const confirmPassword = document.getElementById('confirmChangeMasterPassword').value;
+                    await this.changeMasterPassword(newPassword, confirmPassword);
+                });
+
+                // Handle cancel change password button
+                const cancelChangePasswordBtn = document.getElementById('cancelChangePasswordBtn');
+                cancelChangePasswordBtn.addEventListener('click', () => {
+                    this.hideChangePasswordForm();
+                });
+
+            }
+
+        }
+
+        // Initialize the UI
+        const passwordUI = new PasswordUI();
+    </script>
+</body>
+</html>
