@@ -8,7 +8,6 @@ I have been looking for a password manager similar to Enpass that is open source
 - AES encryption of passwords (further testing required here to make sure claude code didn't add any surprises)
 - Password generator screen (need to add actual common word functionality)
 
-[usage_pic]
 ![picture of usage](usage_shot.png "Example Usage")
 
 
