@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Password Manager</title>
+    <title>SyncPass - Password Manager</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔒</text></svg>">
     <style>
         * {
             box-sizing: border-box;
@@ -522,6 +523,682 @@
         .form-actions .cancel-btn:hover {
             background: #e0e0e0;
         }
+
+        /* Page layout styles */
+        .page {
+            height: 100%;
+            overflow: auto;
+        }
+
+        .page-header {
+            background: white;
+            border-bottom: 1px solid #e0e0e0;
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .page-header h1 {
+            margin: 0;
+            font-size: 24px;
+            color: #333;
+        }
+
+        .back-btn {
+            padding: 8px 16px;
+            background: #f5f5f5;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            color: #666;
+            transition: all 0.2s;
+        }
+
+        .back-btn:hover {
+            background: #e0e0e0;
+            color: #333;
+        }
+
+        .page-content {
+            padding: 24px;
+            max-width: 800px;
+        }
+
+        /* Settings page styles */
+        .settings-btn {
+            background: #2196f3;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 8px 8px 8px 0;
+        }
+
+        .settings-btn:hover {
+            background: #1976d2;
+        }
+
+        .settings-btn.orange {
+            background: #ff9800;
+        }
+
+        .settings-btn.orange:hover {
+            background: #f57c00;
+        }
+
+        .settings-btn.secondary {
+            background: #f5f5f5;
+            color: #666;
+        }
+
+        .settings-btn.secondary:hover {
+            background: #e0e0e0;
+        }
+
+        .success-text {
+            color: #4caf50;
+            font-weight: 500;
+        }
+
+        .warning-text {
+            font-size: 12px;
+            color: #666;
+            margin-top: 8px;
+        }
+
+        .s3-note {
+            font-size: 12px;
+            color: #666;
+            margin-top: 8px;
+        }
+
+        /* Generator page styles */
+        .generator-section {
+            max-width: 600px;
+        }
+
+        .generator-output {
+            background: #f8f8f8;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 32px;
+        }
+
+        .generator-output label {
+            display: block;
+            font-weight: 500;
+            margin-bottom: 12px;
+            color: #333;
+        }
+
+        .password-output {
+            display: flex;
+            gap: 8px;
+        }
+
+        .password-output input {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 16px;
+            background: white;
+        }
+
+        .copy-generated-btn {
+            padding: 12px;
+            background: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .copy-generated-btn:hover {
+            background: #388e3c;
+        }
+
+        .generator-controls {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 24px;
+        }
+
+        .control-group {
+            margin-bottom: 24px;
+        }
+
+        .control-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .control-group label {
+            display: block;
+            font-weight: 500;
+            margin-bottom: 12px;
+            color: #333;
+        }
+
+        .radio-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .radio-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: normal;
+            cursor: pointer;
+        }
+
+        .radio-label input[type="radio"] {
+            margin: 0;
+        }
+
+        .control-group input[type="range"] {
+            width: 200px;
+            margin-right: 12px;
+        }
+
+        .control-group select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            background: white;
+        }
+
+        .control-group input[type="text"] {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .control-group input[type="text"]:focus {
+            outline: none;
+            border-color: #2196f3;
+        }
+
+
+        /* Master password form styles */
+        .master-password-form {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .master-password-input {
+            width: 100%;
+            padding: 16px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+            background: white;
+            box-sizing: border-box;
+        }
+
+        .master-password-input:focus {
+            outline: none;
+            border-color: #2196f3;
+            box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.2);
+        }
+
+        .master-password-btn {
+            width: 100%;
+            padding: 16px;
+            font-size: 16px;
+            font-weight: 500;
+        }
+
+        .master-password-buttons {
+            display: flex;
+            gap: 12px;
+        }
+
+        .master-password-buttons .settings-btn {
+            flex: 1;
+            margin: 0;
+        }
+
+        /* Dark mode - Gruvbox Dark theme */
+        body.dark-mode {
+            background: #282828;
+            color: #ebdbb2;
+        }
+
+        body.dark-mode .toolbar {
+            background: #3c3836;
+            border-bottom-color: #504945;
+        }
+
+        body.dark-mode .toolbar button {
+            background: #504945;
+            color: #ebdbb2;
+        }
+
+        body.dark-mode .toolbar button:hover {
+            background: #665c54;
+        }
+
+        body.dark-mode .toolbar .primary-btn {
+            background: #458588;
+            color: #ebdbb2;
+        }
+
+        body.dark-mode .toolbar .primary-btn:hover {
+            background: #689d6a;
+        }
+
+        body.dark-mode .main-content {
+            background: #282828;
+        }
+
+        body.dark-mode .page-header {
+            background: #3c3836;
+            border-bottom-color: #504945;
+            color: #ebdbb2;
+        }
+
+        body.dark-mode .back-btn {
+            background: #504945;
+            color: #ebdbb2;
+        }
+
+        body.dark-mode .back-btn:hover {
+            background: #665c54;
+        }
+
+        body.dark-mode .page-content {
+            background: #282828;
+        }
+
+        body.dark-mode .password-table {
+            background: #3c3836;
+            color: #ebdbb2;
+        }
+
+        body.dark-mode .password-table th {
+            background: #504945;
+            border-color: #665c54;
+            color: #ebdbb2;
+        }
+
+        body.dark-mode .password-table td {
+            border-color: #665c54;
+            background: #3c3836;
+        }
+
+        body.dark-mode .password-table tr:nth-child(even) {
+            background: #32302f;
+        }
+
+        body.dark-mode .password-table tr:hover {
+            background: #504945;
+        }
+
+        body.dark-mode .editable-field {
+            background: #3c3836;
+            color: #ebdbb2;
+            border-color: #665c54;
+        }
+
+        body.dark-mode .editable-field:focus {
+            background: #504945;
+            border-color: #458588;
+        }
+
+        body.dark-mode .setting-item {
+            border-bottom-color: #504945;
+        }
+
+        body.dark-mode .setting-item input,
+        body.dark-mode .setting-item select {
+            background: #3c3836;
+            color: #ebdbb2;
+            border-color: #665c54;
+        }
+
+        body.dark-mode .setting-item input:focus,
+        body.dark-mode .setting-item select:focus {
+            border-color: #458588;
+        }
+
+        body.dark-mode .generator-output {
+            background: #3c3836;
+            border-color: #665c54;
+        }
+
+        body.dark-mode .generator-controls {
+            background: #3c3836;
+            border-color: #665c54;
+        }
+
+        body.dark-mode .password-output input {
+            background: #504945;
+            color: #ebdbb2;
+            border-color: #665c54;
+        }
+
+        body.dark-mode .modal {
+            background: rgba(40, 40, 40, 0.8);
+        }
+
+        body.dark-mode .modal-content {
+            background: #3c3836;
+            color: #ebdbb2;
+        }
+
+        body.dark-mode .form-field input {
+            background: #504945;
+            color: #ebdbb2;
+            border-color: #665c54;
+        }
+
+        body.dark-mode .master-password-input {
+            background: #504945;
+            color: #ebdbb2;
+            border-color: #665c54;
+        }
+
+        body.dark-mode .master-password-input:focus {
+            border-color: #458588;
+            box-shadow: 0 0 0 2px rgba(69, 133, 136, 0.2);
+        }
+
+        /* Dark mode - Generator page specific */
+        body.dark-mode .control-group label {
+            color: #ebdbb2;
+        }
+
+        body.dark-mode .control-group select {
+            background: #3c3836;
+            color: #ebdbb2;
+            border-color: #665c54;
+        }
+
+        body.dark-mode .control-group select:focus {
+            border-color: #458588;
+        }
+
+        body.dark-mode .control-group input[type="text"] {
+            background: #3c3836;
+            color: #ebdbb2;
+            border-color: #665c54;
+        }
+
+        body.dark-mode .control-group input[type="text"]:focus {
+            border-color: #458588;
+        }
+
+        body.dark-mode .control-group input[type="text"]::placeholder {
+            color: #928374;
+        }
+
+        body.dark-mode .radio-label {
+            color: #ebdbb2;
+        }
+
+        body.dark-mode .description {
+            color: #a89984;
+        }
+
+        /* Dark mode - Empty state text */
+        body.dark-mode .empty-state {
+            color: #928374;
+        }
+
+        /* Dark mode - Button improvements */
+        body.dark-mode .action-btn {
+            background: #504945;
+            color: #ebdbb2;
+        }
+
+        body.dark-mode .copy-btn {
+            background: #689d6a;
+            color: #ebdbb2;
+        }
+
+        body.dark-mode .copy-btn:hover {
+            background: #8ec07c;
+        }
+
+        body.dark-mode .toggle-password-btn {
+            background: #d79921;
+            color: #ebdbb2;
+        }
+
+        body.dark-mode .toggle-password-btn:hover {
+            background: #fabd2f;
+        }
+
+        body.dark-mode .edit-btn {
+            background: #458588;
+            color: #ebdbb2;
+        }
+
+        body.dark-mode .edit-btn:hover {
+            background: #83a598;
+        }
+
+        body.dark-mode .save-btn {
+            background: #689d6a;
+            color: #ebdbb2;
+        }
+
+        body.dark-mode .save-btn:hover {
+            background: #8ec07c;
+        }
+
+        body.dark-mode .cancel-btn {
+            background: #504945;
+            color: #a89984;
+        }
+
+        body.dark-mode .cancel-btn:hover {
+            background: #665c54;
+        }
+
+        body.dark-mode .delete-btn {
+            background: #cc241d;
+            color: #ebdbb2;
+        }
+
+        body.dark-mode .delete-btn:hover {
+            background: #fb4934;
+        }
+
+        /* Dark mode - Copy generated password button */
+        body.dark-mode .copy-generated-btn {
+            background: #689d6a;
+            color: #ebdbb2;
+        }
+
+        body.dark-mode .copy-generated-btn:hover {
+            background: #8ec07c;
+        }
+
+        /* Dark mode - Settings buttons */
+        body.dark-mode .settings-btn {
+            background: #458588;
+            color: #ebdbb2;
+        }
+
+        body.dark-mode .settings-btn:hover {
+            background: #83a598;
+        }
+
+        body.dark-mode .settings-btn.orange {
+            background: #d79921;
+            color: #ebdbb2;
+        }
+
+        body.dark-mode .settings-btn.orange:hover {
+            background: #fabd2f;
+        }
+
+        body.dark-mode .settings-btn.secondary {
+            background: #504945;
+            color: #a89984;
+        }
+
+        body.dark-mode .settings-btn.secondary:hover {
+            background: #665c54;
+        }
+
+        /* Dark mode - Form elements improvements */
+        body.dark-mode .form-field label {
+            color: #ebdbb2;
+        }
+
+        body.dark-mode .form-field .description {
+            color: #a89984;
+        }
+
+        body.dark-mode .form-field input[type="password"] {
+            background: #504945;
+            color: #ebdbb2;
+            border-color: #665c54;
+        }
+
+        body.dark-mode .form-field input[type="file"] {
+            background: #3c3836;
+            color: #ebdbb2;
+            border-color: #665c54;
+        }
+
+        body.dark-mode .form-field input:focus {
+            border-color: #458588;
+        }
+
+        /* Dark mode - Modal headers */
+        body.dark-mode .modal-header h2 {
+            color: #ebdbb2;
+        }
+
+        body.dark-mode .close-button {
+            color: #a89984;
+        }
+
+        body.dark-mode .close-button:hover {
+            color: #ebdbb2;
+        }
+
+        /* Dark mode - Search box */
+        body.dark-mode .search-box {
+            background: #3c3836;
+            color: #ebdbb2;
+            border-color: #665c54;
+        }
+
+        body.dark-mode .search-box:focus {
+            background: #504945;
+            border-color: #458588;
+        }
+
+        body.dark-mode .search-box.active {
+            border-color: #689d6a;
+            background: #3c3836;
+        }
+
+        body.dark-mode .search-icon {
+            color: #a89984;
+        }
+
+        body.dark-mode .search-results-info {
+            color: #a89984;
+        }
+
+        /* Dark mode - Range sliders */
+        body.dark-mode input[type="range"] {
+            background: #504945;
+        }
+
+        body.dark-mode input[type="range"]::-webkit-slider-thumb {
+            background: #458588;
+        }
+
+        body.dark-mode input[type="range"]::-moz-range-thumb {
+            background: #458588;
+            border: none;
+        }
+
+        /* Dark mode - Checkboxes and radio buttons */
+        body.dark-mode input[type="checkbox"] {
+            accent-color: #458588;
+        }
+
+        body.dark-mode input[type="radio"] {
+            accent-color: #458588;
+        }
+
+        /* Timer overlay styles */
+        .timer-overlay {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .timer-icon {
+            font-size: 16px;
+            line-height: 1;
+        }
+
+        .timer-text {
+            font-family: 'Courier New', monospace;
+            min-width: 30px;
+            text-align: right;
+        }
+
+        /* Dark mode timer overlay */
+        body.dark-mode .timer-overlay {
+            background: rgba(60, 56, 54, 0.9);
+            color: #ebdbb2;
+            border: 1px solid rgba(102, 92, 84, 0.5);
+        }
+
+        /* Timer warning states */
+        .timer-overlay.warning {
+            background: rgba(255, 152, 0, 0.9);
+            color: white;
+            animation: pulse 1s infinite;
+        }
+
+        .timer-overlay.critical {
+            background: rgba(244, 67, 54, 0.9);
+            color: white;
+            animation: pulse 0.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
     </style>
 </head>
 <body>
@@ -535,106 +1212,215 @@
             </div>
         </div>
         <div class="toolbar-right">
+            <button class="secondary-btn" id="generateButton">🎲 Generate</button>
             <button class="secondary-btn" id="settingsButton">⚙️ Settings</button>
             <button class="primary-btn" id="addButton">➕ Add New</button>
             <button class="secondary-btn" id="importButton">📤 Import</button>
             <button class="secondary-btn" id="exportButton">📥 Export</button>
+            <button class="secondary-btn" id="syncButton">☁️ Sync</button>
         </div>
     </div>
 
     <!-- Main content area -->
     <div class="main-content">
-        <div class="password-table-container">
-            <table class="password-table" id="passwordTable">
-                <thead>
-                    <tr>
-                        <th>Website</th>
-                        <th>Username</th>
-                        <th>Password</th>
-                        <th>Copy</th>
-                        <th>Show</th>
-                        <th>Edit</th>
-                        <th>Delete</th>
-                    </tr>
-                </thead>
-                <tbody id="passwordTableBody">
-                    <tr>
-                        <td colspan="7" class="empty-state">
-                            <p>Loading passwords...</p>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+        <!-- Password List Page -->
+        <div class="page" id="passwordPage">
+            <div class="password-table-container">
+                <table class="password-table" id="passwordTable">
+                    <thead>
+                        <tr>
+                            <th>Website</th>
+                            <th>Username</th>
+                            <th>Password</th>
+                            <th>Copy</th>
+                            <th>Show</th>
+                            <th>Edit</th>
+                            <th>Delete</th>
+                        </tr>
+                    </thead>
+                    <tbody id="passwordTableBody">
+                        <tr>
+                            <td colspan="7" class="empty-state">
+                                <p>Loading passwords...</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
-    </div>
 
-    <!-- Settings Modal -->
-    <div class="modal" id="settingsModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Settings</h2>
-                <button class="close-button" id="closeSettings">×</button>
+        <!-- Settings Page -->
+        <div class="page" id="settingsPage" style="display: none;">
+            <div class="page-header">
+                <button class="back-btn" id="backFromSettings">← Back</button>
+                <h1>Settings</h1>
             </div>
-            
-            <div class="setting-item">
-                <label>Auto-lock timeout</label>
-                <p class="description">Lock password manager after inactivity</p>
-                <select id="autoLockTimeout">
-                    <option value="0">Never</option>
-                    <option value="5">5 minutes</option>
-                    <option value="15">15 minutes</option>
-                    <option value="30">30 minutes</option>
-                </select>
-            </div>
-            
-            <div class="setting-item">
-                <label>
-                    <input type="checkbox" id="showPasswordStrength">
-                    Show password strength indicators
-                </label>
-            </div>
-            
-            <div class="setting-item">
-                <label>
-                    <input type="checkbox" id="clipboardAutoClear">
-                    Clear clipboard after 30 seconds
-                </label>
-            </div>
-            
-            <div class="setting-item">
-                <label>
-                    <input type="checkbox" id="darkMode">
-                    Dark mode (coming soon)
-                </label>
-            </div>
-            
-            <div class="setting-item">
-                <label>Master Password Protection</label>
-                <p class="description">Encrypt your stored passwords with a master password</p>
-                <div id="masterPasswordSection">
-                    <div id="masterPasswordNotSet" style="display: none;">
-                        <input type="password" id="newMasterPassword" placeholder="Enter master password" style="width: 100%; margin-bottom: 8px;">
-                        <input type="password" id="confirmMasterPassword" placeholder="Confirm master password" style="width: 100%; margin-bottom: 8px;">
-                        <button type="button" id="setMasterPasswordBtn" style="background: #2196f3; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">Set Master Password</button>
-                        <p style="font-size: 12px; color: #666; margin-top: 8px;">⚠️ Warning: This password is not saved. You must remember it to access your passwords.</p>
-                    </div>
-                    <div id="masterPasswordSet" style="display: none;">
-                        <p style="color: #4caf50; font-weight: 500;">✅ Master password is set</p>
-                        <p style="font-size: 12px; color: #666;">Your passwords are encrypted and protected.</p>
-                        <div id="changePasswordSection" style="margin-top: 12px; display: none;">
-                            <input type="password" id="changeMasterPassword" placeholder="Enter new master password" style="width: 100%; margin-bottom: 8px;">
-                            <input type="password" id="confirmChangeMasterPassword" placeholder="Confirm new master password" style="width: 100%; margin-bottom: 8px;">
-                            <button type="button" id="changeMasterPasswordBtn" style="background: #ff9800; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin-right: 8px;">Change Master Password</button>
-                            <button type="button" id="cancelChangePasswordBtn" style="background: #f5f5f5; color: #666; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">Cancel</button>
-                            <p style="font-size: 12px; color: #666; margin-top: 8px;">⚠️ This will re-encrypt all your passwords with the new password.</p>
+            <div class="page-content">
+                <div class="setting-item">
+                    <label>Auto-return timeout</label>
+                    <p class="description">Automatically return to password screen after inactivity</p>
+                    <select id="autoLockTimeout">
+                        <option value="0">Never</option>
+                        <option value="30">30 seconds</option>
+                        <option value="60">1 minute</option>
+                        <option value="120">2 minutes</option>
+                        <option value="300">5 minutes</option>
+                    </select>
+                </div>
+                
+                <div class="setting-item">
+                    <label>
+                        <input type="checkbox" id="showPasswordStrength">
+                        Show password strength indicators
+                    </label>
+                </div>
+                
+                <div class="setting-item">
+                    <label>
+                        <input type="checkbox" id="clipboardAutoClear">
+                        Clear clipboard after 30 seconds
+                    </label>
+                </div>
+                
+                <div class="setting-item">
+                    <label>
+                        <input type="checkbox" id="darkMode">
+                        Dark mode
+                    </label>
+                </div>
+                
+                <div class="setting-item">
+                    <label>Amazon S3 Backup Configuration</label>
+                    <p class="description">Configure Amazon S3 for backing up your password data</p>
+                    <div class="s3-config-section">
+                        <div class="form-field">
+                            <label for="s3AccessKey">Access Key ID</label>
+                            <input type="text" id="s3AccessKey" placeholder="Your AWS Access Key ID">
                         </div>
-                        <div id="showChangePasswordBtn" style="margin-top: 12px;">
-                            <button type="button" id="showChangePasswordFormBtn" style="background: #2196f3; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">Change Master Password</button>
+                        <div class="form-field">
+                            <label for="s3SecretKey">Secret Access Key</label>
+                            <input type="password" id="s3SecretKey" placeholder="Your AWS Secret Access Key">
+                        </div>
+                        <div class="form-field">
+                            <label for="s3BucketName">Bucket Name</label>
+                            <input type="text" id="s3BucketName" placeholder="your-bucket-name">
+                        </div>
+                        <div class="form-field">
+                            <label for="s3Region">AWS Region</label>
+                            <input type="text" id="s3Region" placeholder="us-east-1">
+                        </div>
+                        <p class="s3-note">🔒 Your AWS credentials are stored locally and encrypted with your master password.</p>
+                    </div>
+                </div>
+                
+                <div class="setting-item">
+                    <label>Master Password Protection</label>
+                    <p class="description">Encrypt your stored passwords with a master password</p>
+                    <div id="masterPasswordSection">
+                        <div id="masterPasswordNotSet" style="display: none;">
+                            <div class="master-password-form">
+                                <input type="password" id="newMasterPassword" placeholder="Enter master password" class="master-password-input">
+                                <input type="password" id="confirmMasterPassword" placeholder="Confirm master password" class="master-password-input">
+                                <button type="button" id="setMasterPasswordBtn" class="settings-btn master-password-btn">Set Master Password</button>
+                            </div>
+                            <p class="warning-text">⚠️ Warning: This password is not saved. You must remember it to access your passwords.</p>
+                        </div>
+                        <div id="masterPasswordSet" style="display: none;">
+                            <p class="success-text">✅ Master password is set</p>
+                            <p class="description">Your passwords are encrypted and protected.</p>
+                            <div id="changePasswordSection" style="display: none;">
+                                <div class="master-password-form">
+                                    <input type="password" id="changeMasterPassword" placeholder="Enter new master password" class="master-password-input">
+                                    <input type="password" id="confirmChangeMasterPassword" placeholder="Confirm new master password" class="master-password-input">
+                                    <div class="master-password-buttons">
+                                        <button type="button" id="changeMasterPasswordBtn" class="settings-btn orange">Change Master Password</button>
+                                        <button type="button" id="cancelChangePasswordBtn" class="settings-btn secondary">Cancel</button>
+                                    </div>
+                                </div>
+                                <p class="warning-text">⚠️ This will re-encrypt all your passwords with the new password.</p>
+                            </div>
+                            <div id="showChangePasswordBtn">
+                                <button type="button" id="showChangePasswordFormBtn" class="settings-btn">Change Master Password</button>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
+
+        <!-- Password Generator Page -->
+        <div class="page" id="generatorPage" style="display: none;">
+            <div class="page-header">
+                <button class="back-btn" id="backFromGenerator">← Back</button>
+                <h1>Password Generator</h1>
+            </div>
+            <div class="page-content">
+                <div class="generator-section">
+                    <div class="generator-output">
+                        <label>Generated Password</label>
+                        <div class="password-output">
+                            <input type="text" id="generatedPassword" readonly placeholder="Click generate to create a password">
+                            <button class="copy-generated-btn" id="copyGeneratedBtn" title="Copy to clipboard">📋</button>
+                        </div>
+                    </div>
+                    
+                    <div class="generator-controls">
+                        <div class="control-group">
+                            <label>Password Type</label>
+                            <div class="radio-group">
+                                <label class="radio-label">
+                                    <input type="radio" name="passwordType" value="words" checked>
+                                    Word-based (e.g. apple-tree-house)
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="passwordType" value="random">
+                                    Random characters
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="control-group" id="wordControls">
+                            <label>Number of Words</label>
+                            <input type="range" id="wordCount" min="2" max="6" value="3">
+                            <span id="wordCountValue">3</span>
+                        </div>
+                        
+                        <div class="control-group" id="randomControls" style="display: none;">
+                            <label>Password Length</label>
+                            <input type="range" id="passwordLength" min="10" max="32" value="16">
+                            <span id="passwordLengthValue">16</span>
+                        </div>
+                        
+                        <div class="control-group">
+                            <label for="symbolSeparator">Symbol Separator</label>
+                            <select id="symbolSeparator">
+                                <option value="-">Dash (-)</option>
+                                <option value="_">Underscore (_)</option>
+                                <option value=".">Dot (.)</option>
+                                <option value="@">At (@)</option>
+                                <option value="#">Hash (#)</option>
+                                <option value="!">Exclamation (!)</option>
+                                <option value="+">Plus (+)</option>
+                                <option value="=">Equals (=)</option>
+                                <option value="~">Tilde (~)</option>
+                            </select>
+                        </div>
+                        
+                        <div class="control-group">
+                            <label for="excludeChars">Exclude Characters</label>
+                            <input type="text" id="excludeChars" placeholder="Enter characters to exclude (e.g., 0O1l)">
+                            <p class="description">Type any characters you want to avoid in your password</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Timer Display Overlay -->
+    <div class="timer-overlay" id="timerOverlay" style="display: none;">
+        <div class="timer-icon">🕐</div>
+        <div class="timer-text" id="timerText">30s</div>
     </div>
 
     <!-- Master Password Unlock Modal -->
@@ -657,6 +1443,37 @@
                 
                 <div class="form-actions">
                     <button type="submit" class="save-btn">🔓 Unlock</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Set Master Password for Lock Modal -->
+    <div class="modal" id="setMasterPasswordLockModal" style="z-index: 2000;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>🔐 Set Master Password</h2>
+            </div>
+            
+            <div class="form-field" style="background: #d4edda; border: 1px solid #c3e6cb; border-radius: 4px; padding: 12px; margin-bottom: 20px;">
+                <strong>🔒 Encrypt your passwords before locking.</strong> Set a master password to secure your imported passwords.
+            </div>
+            
+            <form id="setMasterPasswordLockForm">
+                <div class="form-field">
+                    <label for="setMasterPasswordLockInput">Master Password</label>
+                    <input type="password" id="setMasterPasswordLockInput" required placeholder="Enter a strong master password" autofocus>
+                </div>
+                
+                <div class="form-field">
+                    <label for="confirmMasterPasswordLockInput">Confirm Master Password</label>
+                    <input type="password" id="confirmMasterPasswordLockInput" required placeholder="Confirm your master password">
+                    <p class="description">⚠️ Remember this password - it cannot be recovered if lost!</p>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="save-btn">🔐 Set Password & Lock</button>
+                    <button type="button" class="cancel-btn" onclick="passwordManager.cancelSetMasterPasswordLock()">Cancel</button>
                 </div>
             </form>
         </div>
@@ -768,6 +1585,12 @@
                 this.isUnlocked = false; // Track if app is unlocked
                 this.currentSearchQuery = ''; // Track current search query
                 this.allPasswords = []; // Store all passwords for filtering
+                this.currentPage = 'passwordPage'; // Track current page
+                this.autoReturnTimer = null; // Timer for auto-return to password page
+                this.countdownInterval = null; // Interval for countdown display
+                this.timerEndTime = null; // When the timer will expire
+                this.lastActivityTime = 0; // Throttle activity reset calls
+                this.commonWords = ['apple', 'banana', 'cherry', 'dragon', 'eagle', 'forest', 'garden', 'house', 'island', 'jungle', 'kitten', 'lemon', 'mountain', 'ocean', 'piano', 'queen', 'river', 'sunset', 'tiger', 'umbrella', 'valley', 'window', 'yellow', 'zebra', 'bridge', 'castle', 'diamond', 'engine', 'flower', 'guitar', 'hammer', 'ice', 'jewel', 'knife', 'ladder', 'magic', 'night', 'orange', 'phone', 'robot', 'stone', 'table', 'unicorn', 'violin', 'water', 'earth', 'fire', 'wind', 'star', 'moon'];
                 
                 this.init();
             }
@@ -776,6 +1599,8 @@
                 await this.loadAndApplySettings();
                 await this.checkPasswordStatusAndUnlock();
                 this.attachEventListeners();
+                // Start the auto-return timer for the initial page
+                this.manageAutoReturnTimer(this.currentPage);
             }
             
             async loadAndApplySettings() {
@@ -796,9 +1621,15 @@
                     }
                     
                     if (passwordData.needs_password) {
-                        // Master password is required - show unlock modal
-                        this.showMasterPasswordModal();
+                        // Master password is required - redirect to unlock page
+                        console.log('Password required - redirecting to unlock page');
+                        window.location.href = 'unlock.html';
                         return;
+                    } else if (passwordData.password_set && passwordData.has_encrypted && passwordData.has_plain && !passwordData.needs_password) {
+                        // Passwords are unlocked and available - load them
+                        console.log('Passwords are unlocked - loading password list');
+                        this.isUnlocked = true;
+                        await this.renderPasswordList();
                     } else if (passwordData.password_set && !passwordData.has_encrypted) {
                         // Password was set but no encrypted data found - error state
                         alert('Error: Password protection is enabled but no encrypted password data was found. Please check your installation.');
@@ -810,12 +1641,12 @@
                     } else if (passwordData.password_set && passwordData.has_plain) {
                         // This should not happen after our cleanup, but handle it
                         console.warn('Unexpected state: master password set but plain passwords available');
-                        this.showMasterPasswordModal();
+                        window.location.href = 'unlock.html';
                         return;
                     } else {
                         // Fallback - should not reach here
                         console.warn('Unexpected password state:', passwordData);
-                        this.showMasterPasswordModal();
+                        window.location.href = 'unlock.html';
                         return;
                     }
                 } catch (error) {
@@ -832,6 +1663,132 @@
                     const input = document.getElementById('masterPasswordInput');
                     if (input) input.focus();
                 }, 100);
+            }
+
+            // Show set master password for lock modal
+            showSetMasterPasswordLockModal() {
+                this.toggleModal('setMasterPasswordLockModal', true);
+                // Focus password input after modal is shown
+                setTimeout(() => {
+                    const input = document.getElementById('setMasterPasswordLockInput');
+                    if (input) input.focus();
+                }, 100);
+            }
+
+            // Cancel setting master password for lock
+            cancelSetMasterPasswordLock() {
+                this.toggleModal('setMasterPasswordLockModal', false);
+                document.getElementById('setMasterPasswordLockForm').reset();
+                console.log('Master password setup canceled - lock operation aborted');
+            }
+
+            // Handle setting master password for lock
+            async setMasterPasswordForLock(password) {
+                try {
+                    // Set the master password to encrypt current passwords
+                    const setResult = await window.electronAPI.setMasterPassword(password);
+                    if (setResult.success) {
+                        console.log('Master password set, attempting to lock again');
+                        
+                        // Try locking again now that master password is set
+                        const lockResult = await window.electronAPI.lockPasswords();
+                        if (lockResult.success) {
+                            console.log('Successfully locked after setting master password');
+                            
+                            // Close modal and clear form
+                            this.toggleModal('setMasterPasswordLockModal', false);
+                            document.getElementById('setMasterPasswordLockForm').reset();
+                            
+                            // Clear frontend state
+                            this.allPasswords = [];
+                            this.isUnlocked = false;
+                            
+                            // Redirect to unlock page
+                            window.location.href = 'unlock.html';
+                        } else {
+                            throw new Error(lockResult.error || 'Failed to lock after setting master password');
+                        }
+                    } else {
+                        throw new Error(setResult.error || 'Failed to set master password');
+                    }
+                } catch (error) {
+                    console.error('Failed in setMasterPasswordForLock:', error);
+                    alert('Failed to set master password: ' + error.message);
+                }
+            }
+
+            // Handle S3 sync
+            async handleSync() {
+                try {
+                    const syncBtn = document.getElementById('syncButton');
+                    const originalText = syncBtn.innerHTML;
+                    
+                    // Show loading state
+                    syncBtn.innerHTML = '⏳ Syncing...';
+                    syncBtn.disabled = true;
+                    
+                    console.log('Starting S3 sync...');
+                    const result = await window.electronAPI.syncToS3();
+                    
+                    if (result.success) {
+                        // Show success feedback
+                        syncBtn.innerHTML = '✅ Synced!';
+                        console.log('S3 sync successful:', result.message);
+                        
+                        // Show user-friendly message based on sync result
+                        let message = '';
+                        switch (result.result) {
+                            case 'uploaded':
+                                message = '✅ Local passwords uploaded to S3';
+                                break;
+                            case 'downloaded':
+                                message = '📥 Remote passwords downloaded from S3';
+                                // Check if we need to redirect to unlock screen
+                                if (result.redirect_to_unlock) {
+                                    console.log('Redirecting to unlock screen for password decryption');
+                                    window.location.href = 'unlock.html';
+                                    return;
+                                }
+                                // Reload passwords if downloaded and no redirect needed
+                                await this.renderPasswordList();
+                                break;
+                            case 'in-sync':
+                                message = '✅ Passwords are already in sync';
+                                break;
+                            case 'no_backup_found':
+                                message = '🆕 No backup found on S3. Starting fresh!';
+                                // Check if we need to redirect to main screen (already on main screen, just reload)
+                                if (result.redirect_to_main) {
+                                    await this.renderPasswordList();
+                                }
+                                break;
+                            default:
+                                message = '✅ Sync completed successfully';
+                        }
+                        
+                        alert(message);
+                    } else {
+                        // Show error feedback
+                        syncBtn.innerHTML = '❌ Sync Failed';
+                        console.error('S3 sync failed:', result.error);
+                        alert('Sync failed: ' + result.error);
+                    }
+                    
+                    // Reset button after delay
+                    setTimeout(() => {
+                        syncBtn.innerHTML = originalText;
+                        syncBtn.disabled = false;
+                    }, 3000);
+                    
+                } catch (error) {
+                    console.error('Sync error:', error);
+                    alert('Sync error: ' + error.message);
+                    
+                    // Reset button on error
+                    const syncBtn = document.getElementById('syncButton');
+                    syncBtn.innerHTML = '☁️ Sync';
+                    syncBtn.disabled = false;
+                }
             }
             
             // Handle master password unlock
@@ -972,10 +1929,14 @@
                 } catch (error) {
                     console.error('Failed to load settings:', error);
                     return {
-                        autoLockTimeout: '15',
+                        autoLockTimeout: '30',
                         showPasswordStrength: false,
                         clipboardAutoClear: true,
-                        darkMode: false
+                        darkMode: false,
+                        s3AccessKey: '',
+                        s3SecretKey: '',
+                        s3BucketName: '',
+                        s3Region: 'us-east-1'
                     };
                 }
             }
@@ -988,8 +1949,26 @@
                 document.getElementById('clipboardAutoClear').checked = this.settings.clipboardAutoClear;
                 document.getElementById('darkMode').checked = this.settings.darkMode;
                 
+                // Apply S3 settings
+                document.getElementById('s3AccessKey').value = this.settings.s3AccessKey || '';
+                document.getElementById('s3SecretKey').value = this.settings.s3SecretKey || '';
+                document.getElementById('s3BucketName').value = this.settings.s3BucketName || '';
+                document.getElementById('s3Region').value = this.settings.s3Region || '';
+                
+                // Apply dark mode
+                this.applyDarkMode();
+                
                 // Update master password UI
                 this.updateMasterPasswordUI();
+            }
+
+            // Apply dark mode styling
+            applyDarkMode() {
+                if (this.settings.darkMode) {
+                    document.body.classList.add('dark-mode');
+                } else {
+                    document.body.classList.remove('dark-mode');
+                }
             }
 
             // Save settings to YAML file
@@ -998,8 +1977,15 @@
                     autoLockTimeout: document.getElementById('autoLockTimeout').value,
                     showPasswordStrength: document.getElementById('showPasswordStrength').checked,
                     clipboardAutoClear: document.getElementById('clipboardAutoClear').checked,
-                    darkMode: document.getElementById('darkMode').checked
+                    darkMode: document.getElementById('darkMode').checked,
+                    s3AccessKey: document.getElementById('s3AccessKey').value,
+                    s3SecretKey: document.getElementById('s3SecretKey').value,
+                    s3BucketName: document.getElementById('s3BucketName').value,
+                    s3Region: document.getElementById('s3Region').value
                 };
+                
+                // Apply dark mode immediately
+                this.applyDarkMode();
                 
                 try {
                     const success = await window.electronAPI.saveSettings(this.settings);
@@ -1467,6 +2453,307 @@
                 return passwords;
             }
 
+            // Page Navigation Methods
+            showPage(pageId) {
+                // Hide all pages
+                document.querySelectorAll('.page').forEach(page => {
+                    page.style.display = 'none';
+                });
+                
+                // Show selected page
+                document.getElementById(pageId).style.display = 'block';
+                this.currentPage = pageId;
+                
+                // Update toolbar visibility
+                const toolbar = document.querySelector('.toolbar');
+                if (pageId === 'passwordPage') {
+                    toolbar.style.display = 'flex';
+                } else {
+                    toolbar.style.display = 'flex'; // Keep toolbar visible on all pages
+                }
+                
+                // Auto-generate password when showing generator page
+                if (pageId === 'generatorPage') {
+                    this.generatePassword();
+                }
+                
+                // Manage auto-return timer
+                this.manageAutoReturnTimer(pageId);
+            }
+
+            // Auto-return timer management
+            manageAutoReturnTimer(pageId) {
+                // Clear existing timers
+                if (this.autoReturnTimer) {
+                    clearTimeout(this.autoReturnTimer);
+                    this.autoReturnTimer = null;
+                }
+                if (this.countdownInterval) {
+                    clearInterval(this.countdownInterval);
+                    this.countdownInterval = null;
+                }
+                
+                // Set timer for all pages
+                const timeoutSeconds = parseInt(this.settings.autoLockTimeout);
+                
+                console.log('=== TIMER DEBUG ===');
+                console.log('Current page:', pageId);
+                console.log('Timeout seconds from settings:', timeoutSeconds);
+                console.log('Settings object:', this.settings);
+                
+                // Only set timer if timeout is configured (not 0)
+                if (timeoutSeconds > 0) {
+                    console.log('Setting timer for', timeoutSeconds, 'seconds');
+                    
+                    // Set end time for countdown (full timeout duration)
+                    this.timerEndTime = Date.now() + (timeoutSeconds * 1000);
+                    
+                    // Start countdown interval (but don't show timer yet)
+                    this.countdownInterval = setInterval(() => {
+                        this.updateTimerDisplay();
+                    }, 1000);
+                    
+                    // Set the main timeout
+                    this.autoReturnTimer = setTimeout(async () => {
+                        console.log('Timer expired - locking passwords and returning to password page');
+                        
+                        // Hide timer display
+                        this.hideTimerDisplay();
+                        
+                        // Return to password page first
+                        this.showPage('passwordPage');
+                        
+                        // Clear all password data and force re-authentication
+                        await this.lockAndClearAllPasswordData();
+                        
+                    }, timeoutSeconds * 1000);
+                } else {
+                    console.log('Timer disabled (timeout is 0)');
+                    this.hideTimerDisplay();
+                }
+            }
+
+            // Reset auto-return timer (called on user activity)
+            resetAutoReturnTimer() {
+                // Throttle timer resets to prevent excessive calls
+                const now = Date.now();
+                if (now - this.lastActivityTime < 100) { // Throttle to 100ms
+                    return;
+                }
+                this.lastActivityTime = now;
+                this.manageAutoReturnTimer(this.currentPage);
+            }
+
+            // Timer display methods
+            showTimerDisplay() {
+                // Timer will show automatically when ≤15 seconds in updateTimerDisplay()
+                // This method kept for compatibility but doesn't force show
+            }
+
+            hideTimerDisplay() {
+                const timerOverlay = document.getElementById('timerOverlay');
+                timerOverlay.style.display = 'none';
+                
+                // Clear any remaining intervals
+                if (this.countdownInterval) {
+                    clearInterval(this.countdownInterval);
+                    this.countdownInterval = null;
+                }
+            }
+
+            // Lock and clear all password data when timer expires
+            async lockAndClearAllPasswordData() {
+                try {
+                    console.log('=== CLEARING ALL PASSWORD DATA ===');
+                    
+                    // Lock passwords in backend (clears from memory and clears session master password)
+                    const result = await window.electronAPI.lockPasswords();
+                    
+                    if (result.success) {
+                        console.log('Backend passwords locked and session cleared');
+                        
+                        // Clear frontend state
+                        this.allPasswords = [];
+                        this.isUnlocked = false;
+                        
+                        // Redirect to unlock page
+                        console.log('Redirecting to unlock page');
+                        window.location.href = 'unlock.html';
+                        
+                        console.log('All password data cleared - redirected to unlock');
+                    } else if (result.error === 'master_password_required') {
+                        // Need to set master password before locking
+                        console.log('Master password required to encrypt passwords before locking');
+                        this.showSetMasterPasswordLockModal();
+                    } else {
+                        console.error('Failed to lock passwords:', result.error);
+                        alert('Failed to lock passwords: ' + result.error);
+                    }
+                } catch (error) {
+                    console.error('Failed to clear password data:', error);
+                    alert('Failed to lock passwords: ' + error.message);
+                }
+            }
+
+            updateTimerDisplay() {
+                const timerText = document.getElementById('timerText');
+                const timerOverlay = document.getElementById('timerOverlay');
+                
+                if (!this.timerEndTime) {
+                    this.hideTimerDisplay();
+                    return;
+                }
+                
+                const remaining = Math.max(0, Math.ceil((this.timerEndTime - Date.now()) / 1000));
+                
+                // Only show timer when 15 seconds or less remain
+                if (remaining <= 15 && remaining > 0) {
+                    // Show timer overlay if not already visible
+                    if (timerOverlay.style.display === 'none') {
+                        timerOverlay.style.display = 'flex';
+                    }
+                    
+                    // Update text
+                    timerText.textContent = `${remaining}s`;
+                    
+                    // Update styling based on remaining time
+                    timerOverlay.classList.remove('warning', 'critical');
+                    if (remaining <= 5) {
+                        timerOverlay.classList.add('critical');
+                    } else if (remaining <= 10) {
+                        timerOverlay.classList.add('warning');
+                    }
+                } else {
+                    // Hide timer when more than 15 seconds or expired
+                    timerOverlay.style.display = 'none';
+                }
+                
+                // Clean up when expired
+                if (remaining <= 0) {
+                    this.hideTimerDisplay();
+                }
+            }
+
+            // Password Generation Methods
+            generatePassword() {
+                const passwordType = document.querySelector('input[name="passwordType"]:checked').value;
+                let password = '';
+                
+                if (passwordType === 'words') {
+                    password = this.generateWordBasedPassword();
+                } else {
+                    password = this.generateRandomPassword();
+                }
+                
+                // Ensure minimum 10 characters
+                while (password.length < 10) {
+                    if (passwordType === 'words') {
+                        password = this.generateWordBasedPassword();
+                    } else {
+                        password = this.generateRandomPassword();
+                    }
+                }
+                
+                document.getElementById('generatedPassword').value = password;
+            }
+
+            generateWordBasedPassword() {
+                const wordCount = parseInt(document.getElementById('wordCount').value);
+                const separator = document.getElementById('symbolSeparator').value;
+                const excludeChars = document.getElementById('excludeChars').value;
+                
+                const words = [];
+                for (let i = 0; i < wordCount; i++) {
+                    let word;
+                    do {
+                        const randomIndex = Math.floor(Math.random() * this.commonWords.length);
+                        word = this.commonWords[randomIndex];
+                    } while (this.containsExcludedChars(word, excludeChars));
+                    words.push(word);
+                }
+                
+                // Join words with selected separator
+                let password = words.join(separator);
+                
+                // Add random numbers at the end (1-999)
+                const randomNumbers = Math.floor(Math.random() * 999) + 1;
+                password += randomNumbers;
+                
+                return password;
+            }
+
+            generateRandomPassword() {
+                const length = parseInt(document.getElementById('passwordLength').value);
+                const excludeChars = document.getElementById('excludeChars').value;
+                let chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=[]{}|;:,.<>?';
+                
+                // Remove excluded characters
+                if (excludeChars) {
+                    for (let excludeChar of excludeChars) {
+                        chars = chars.replace(new RegExp(this.escapeRegex(excludeChar), 'g'), '');
+                    }
+                }
+                
+                if (chars.length === 0) {
+                    return 'Error: All characters excluded';
+                }
+                
+                let password = '';
+                for (let i = 0; i < length; i++) {
+                    password += chars.charAt(Math.floor(Math.random() * chars.length));
+                }
+                
+                return password;
+            }
+
+            containsExcludedChars(word, excludeChars) {
+                if (!excludeChars) return false;
+                for (let char of excludeChars) {
+                    if (word.includes(char)) return true;
+                }
+                return false;
+            }
+
+            escapeRegex(string) {
+                return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            }
+
+            async copyGeneratedPassword() {
+                const password = document.getElementById('generatedPassword').value;
+                if (!password) {
+                    alert('Please generate a password first');
+                    return;
+                }
+                
+                try {
+                    await navigator.clipboard.writeText(password);
+                    
+                    // Visual feedback
+                    const button = document.getElementById('copyGeneratedBtn');
+                    const originalText = button.innerHTML;
+                    button.innerHTML = '✅';
+                    setTimeout(() => {
+                        button.innerHTML = originalText;
+                    }, 2000);
+                } catch (err) {
+                    console.error('Failed to copy password:', err);
+                    alert('Failed to copy password');
+                }
+            }
+
+            updateGeneratorControls() {
+                const passwordType = document.querySelector('input[name="passwordType"]:checked').value;
+                const wordControls = document.getElementById('wordControls');
+                const randomControls = document.getElementById('randomControls');
+                
+                if (passwordType === 'words') {
+                    wordControls.style.display = 'block';
+                    randomControls.style.display = 'none';
+                } else {
+                    wordControls.style.display = 'none';
+                    randomControls.style.display = 'block';
+                }
+            }
 
             // Attach event listeners for the main UI
             attachEventListeners() {
@@ -1474,21 +2761,33 @@
                 const exportBtn = document.getElementById('exportButton');
                 const importBtn = document.getElementById('importButton');
                 const settingsBtn = document.getElementById('settingsButton');
+                const generateBtn = document.getElementById('generateButton');
                 const addBtn = document.getElementById('addButton');
-                const closeSettingsBtn = document.getElementById('closeSettings');
+                const syncBtn = document.getElementById('syncButton');
                 const closeAddBtn = document.getElementById('closeAdd');
                 const closeImportBtn = document.getElementById('closeImport');
                 const closeExportBtn = document.getElementById('closeExportButton');
                 const cancelAddBtn = document.getElementById('cancelAdd');
                 const cancelImportBtn = document.getElementById('cancelImport');
                 const cancelExportBtn = document.getElementById('cancelExportButton');
-                const settingsModal = document.getElementById('settingsModal');
                 const addModal = document.getElementById('addModal');
                 const importModal = document.getElementById('importModal');
                 const exportModal = document.getElementById('exportModal');
                 const addForm = document.getElementById('addForm');
                 const importForm = document.getElementById('importForm');
                 const exportForm = document.getElementById('exportForm');
+                
+                // Page navigation buttons
+                const backFromSettings = document.getElementById('backFromSettings');
+                const backFromGenerator = document.getElementById('backFromGenerator');
+                
+                // Generator controls
+                const copyGeneratedBtn = document.getElementById('copyGeneratedBtn');
+                const passwordTypeRadios = document.querySelectorAll('input[name="passwordType"]');
+                const wordCountSlider = document.getElementById('wordCount');
+                const passwordLengthSlider = document.getElementById('passwordLength');
+                const symbolSeparator = document.getElementById('symbolSeparator');
+                const excludeChars = document.getElementById('excludeChars');
 
                 // Search functionality
                 searchBox.addEventListener('input', (e) => {
@@ -1506,11 +2805,16 @@
                 // Toolbar buttons
                 exportBtn.addEventListener('click', () => this.toggleModal('exportModal', true));
                 importBtn.addEventListener('click', () => this.toggleModal('importModal', true));
-                settingsBtn.addEventListener('click', () => this.toggleModal('settingsModal', true));
+                settingsBtn.addEventListener('click', () => this.showPage('settingsPage'));
+                generateBtn.addEventListener('click', () => this.showPage('generatorPage'));
                 addBtn.addEventListener('click', () => this.toggleModal('addModal', true));
+                syncBtn.addEventListener('click', () => this.handleSync());
+                
+                // Page navigation
+                backFromSettings.addEventListener('click', () => this.showPage('passwordPage'));
+                backFromGenerator.addEventListener('click', () => this.showPage('passwordPage'));
                 
                 // Modal close buttons
-                closeSettingsBtn.addEventListener('click', () => this.toggleModal('settingsModal', false));
                 closeAddBtn.addEventListener('click', () => this.toggleModal('addModal', false));
                 closeImportBtn.addEventListener('click', () => this.toggleModal('importModal', false));
                 closeExportBtn.addEventListener('click', () => this.toggleModal('exportModal', false));
@@ -1519,7 +2823,7 @@
                 cancelExportBtn.addEventListener('click', () => this.toggleModal('exportModal', false));
              
                 // Close modals on background click
-                [settingsModal, addModal, importModal, exportModal].forEach(modal => {
+                [addModal, importModal, exportModal].forEach(modal => {
                     modal.addEventListener('click', (e) => {
                         if (e.target === modal) {
                             this.toggleModal(modal.id, false);
@@ -1527,8 +2831,58 @@
                     });
                 });
                 
+                // Password generator event listeners
+                copyGeneratedBtn.addEventListener('click', () => this.copyGeneratedPassword());
+                
+                // Generator control updates with auto-generation
+                passwordTypeRadios.forEach(radio => {
+                    radio.addEventListener('change', () => {
+                        this.updateGeneratorControls();
+                        this.generatePassword();
+                    });
+                });
+                
+                wordCountSlider.addEventListener('input', (e) => {
+                    document.getElementById('wordCountValue').textContent = e.target.value;
+                    this.generatePassword();
+                });
+                
+                passwordLengthSlider.addEventListener('input', (e) => {
+                    document.getElementById('passwordLengthValue').textContent = e.target.value;
+                    this.generatePassword();
+                });
+                
+                symbolSeparator.addEventListener('change', () => {
+                    this.generatePassword();
+                });
+                
+                excludeChars.addEventListener('input', () => {
+                    this.generatePassword();
+                });
+                
+                // Activity listeners to reset auto-return timer
+                document.addEventListener('click', () => this.resetAutoReturnTimer());
+                document.addEventListener('keydown', () => this.resetAutoReturnTimer());
+                document.addEventListener('keyup', () => this.resetAutoReturnTimer());
+                document.addEventListener('keypress', () => this.resetAutoReturnTimer());
+                document.addEventListener('input', () => this.resetAutoReturnTimer());
+                document.addEventListener('change', () => this.resetAutoReturnTimer());
+                document.addEventListener('scroll', () => this.resetAutoReturnTimer(), true); // Capture scroll on all elements
+                document.addEventListener('wheel', () => this.resetAutoReturnTimer());
+                document.addEventListener('touchstart', () => this.resetAutoReturnTimer());
+                document.addEventListener('touchmove', () => this.resetAutoReturnTimer());
+                document.addEventListener('touchend', () => this.resetAutoReturnTimer());
+                document.addEventListener('mousedown', () => this.resetAutoReturnTimer());
+                document.addEventListener('mouseup', () => this.resetAutoReturnTimer());
+                document.addEventListener('mousemove', () => this.resetAutoReturnTimer());
+                document.addEventListener('focus', () => this.resetAutoReturnTimer(), true);
+                document.addEventListener('blur', () => this.resetAutoReturnTimer(), true);
+                document.addEventListener('select', () => this.resetAutoReturnTimer());
+                document.addEventListener('selectstart', () => this.resetAutoReturnTimer());
+                
                 // Save settings on change
-                const settingsInputs = settingsModal.querySelectorAll('input, select');
+                const settingsPage = document.getElementById('settingsPage');
+                const settingsInputs = settingsPage.querySelectorAll('input, select');
                 settingsInputs.forEach(input => {
                     input.addEventListener('change', () => this.saveSettings());
                 });
@@ -1571,6 +2925,26 @@
                     e.preventDefault();
                     const password = document.getElementById('masterPasswordInput').value;
                     await this.unlockWithMasterPassword(password);
+                });
+
+                // Handle set master password for lock form submission
+                const setMasterPasswordLockForm = document.getElementById('setMasterPasswordLockForm');
+                setMasterPasswordLockForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const password = document.getElementById('setMasterPasswordLockInput').value;
+                    const confirmPassword = document.getElementById('confirmMasterPasswordLockInput').value;
+                    
+                    if (password !== confirmPassword) {
+                        alert('Passwords do not match. Please try again.');
+                        return;
+                    }
+                    
+                    if (password.length < 6) {
+                        alert('Master password must be at least 6 characters long.');
+                        return;
+                    }
+                    
+                    await this.setMasterPasswordForLock(password);
                 });
 
                 // Handle set master password button

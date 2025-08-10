@@ -25,5 +25,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setMasterPassword: (masterPassword) => ipcRenderer.invoke('set-master-password', masterPassword),
   unlockWithMasterPassword: (masterPassword) => ipcRenderer.invoke('unlock-with-master-password', masterPassword),
   resetMasterPassword: (newMasterPassword) => ipcRenderer.invoke('reset-master-password', newMasterPassword),
-  checkPasswordData: () => ipcRenderer.invoke('check-password-data')
+  checkPasswordData: () => ipcRenderer.invoke('check-password-data'),
+  lockPasswords: () => ipcRenderer.invoke('lock-passwords'),
+  
+  // S3 sync operations
+  syncToS3: () => ipcRenderer.invoke('sync-to-s3'),
+  restoreFromS3: () => ipcRenderer.invoke('restore-from-s3')
 });

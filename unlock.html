@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SyncPass - Unlock</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔒</text></svg>">
+  <style>
+    :root {
+      --bg-light: #fdf6e3;
+      --bg-dark: #282828;
+      --text-light: #657b83;
+      --text-dark: #ebdbb2;
+      --accent-light: #268bd2;
+      --accent-dark: #83a598;
+      --error-light: #dc322f;
+      --error-dark: #fb4934;
+      --input-bg-light: #ffffff;
+      --input-bg-dark: #3c3836;
+      --input-border-light: #93a1a1;
+      --input-border-dark: #665c54;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg-light);
+      color: var(--text-light);
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s ease;
+    }
+
+    body.dark-mode {
+      background: var(--bg-dark);
+      color: var(--text-dark);
+    }
+
+    .unlock-container {
+      text-align: center;
+      max-width: 400px;
+      width: 90%;
+      padding: 40px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 20px;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      transition: all 0.3s ease;
+    }
+
+    body.dark-mode .unlock-container {
+      background: rgba(40, 40, 40, 0.8);
+      border: 1px solid rgba(235, 219, 178, 0.2);
+    }
+
+    .lock-icon {
+      width: 80px;
+      height: 80px;
+      margin: 0 auto 30px;
+      background: var(--accent-light);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 40px;
+      color: white;
+      transition: all 0.3s ease;
+    }
+
+    body.dark-mode .lock-icon {
+      background: var(--accent-dark);
+    }
+
+    .app-title {
+      font-size: 28px;
+      font-weight: 300;
+      margin-bottom: 10px;
+      color: var(--text-light);
+    }
+
+    body.dark-mode .app-title {
+      color: var(--text-dark);
+    }
+
+    .app-subtitle {
+      font-size: 16px;
+      opacity: 0.7;
+      margin-bottom: 40px;
+    }
+
+    .unlock-form {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .input-group {
+      position: relative;
+    }
+
+    .master-password-input {
+      width: 100%;
+      padding: 16px 20px;
+      border: 2px solid var(--input-border-light);
+      border-radius: 12px;
+      font-size: 16px;
+      background: var(--input-bg-light);
+      color: var(--text-light);
+      transition: all 0.3s ease;
+      outline: none;
+    }
+
+    body.dark-mode .master-password-input {
+      background: var(--input-bg-dark);
+      border-color: var(--input-border-dark);
+      color: var(--text-dark);
+    }
+
+    .master-password-input:focus {
+      border-color: var(--accent-light);
+      box-shadow: 0 0 0 3px rgba(38, 139, 210, 0.1);
+    }
+
+    body.dark-mode .master-password-input:focus {
+      border-color: var(--accent-dark);
+      box-shadow: 0 0 0 3px rgba(131, 165, 152, 0.1);
+    }
+
+    .unlock-button {
+      padding: 16px 32px;
+      background: var(--accent-light);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    body.dark-mode .unlock-button {
+      background: var(--accent-dark);
+    }
+
+    .unlock-button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(38, 139, 210, 0.3);
+    }
+
+    body.dark-mode .unlock-button:hover {
+      box-shadow: 0 8px 25px rgba(131, 165, 152, 0.3);
+    }
+
+    .unlock-button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .error-message {
+      color: var(--error-light);
+      font-size: 14px;
+      margin-top: 10px;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    body.dark-mode .error-message {
+      color: var(--error-dark);
+    }
+
+    .error-message.show {
+      opacity: 1;
+    }
+
+    .loading {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top-color: white;
+      animation: spin 1s ease-in-out infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .slide-up {
+      animation: slideUp 0.6s ease-out forwards;
+    }
+
+    @keyframes slideUp {
+      to {
+        transform: translateY(-100vh);
+        opacity: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="unlock-container">
+    <div class="lock-icon">🔒</div>
+    <h1 class="app-title">SyncPass</h1>
+    <p class="app-subtitle">Enter your master password to unlock your passwords</p>
+    
+    <form class="unlock-form" id="unlockForm">
+      <div class="input-group">
+        <input 
+          type="password" 
+          id="masterPasswordInput" 
+          class="master-password-input" 
+          placeholder="Master Password"
+          autocomplete="current-password"
+        />
+      </div>
+      
+      <button type="submit" class="unlock-button" id="unlockButton">
+        Unlock
+      </button>
+      
+      <div class="error-message" id="errorMessage"></div>
+    </form>
+  </div>
+
+  <script>
+    let isUnlocking = false;
+
+    async function initializeUnlockPage() {
+      // Check if password is actually needed
+      try {
+        const passwordData = await window.electronAPI.checkPasswordData();
+        
+        // If no password is needed (fresh install or no encrypted passwords), redirect to main app
+        if (passwordData.success && !passwordData.needs_password) {
+          console.log('No password needed, redirecting to main app');
+          window.location.href = 'index.html';
+          return;
+        }
+      } catch (error) {
+        console.error('Failed to check password data:', error);
+      }
+
+      // Check dark mode setting
+      try {
+        const settings = await window.electronAPI.getSettings();
+        if (settings.darkMode) {
+          document.body.classList.add('dark-mode');
+        }
+      } catch (error) {
+        console.error('Failed to load settings:', error);
+      }
+
+      // Focus on password input
+      document.getElementById('masterPasswordInput').focus();
+    }
+
+    async function unlockApp(masterPassword) {
+      if (isUnlocking) return;
+      
+      isUnlocking = true;
+      const unlockButton = document.getElementById('unlockButton');
+      const errorMessage = document.getElementById('errorMessage');
+      
+      // Show loading state
+      unlockButton.innerHTML = '<span class="loading"></span>';
+      unlockButton.disabled = true;
+      errorMessage.classList.remove('show');
+
+      try {
+        const result = await window.electronAPI.unlockWithMasterPassword(masterPassword);
+        
+        if (result.success) {
+          // Check if we need to redirect to a specific page
+          const redirectPage = result.redirect || 'index.html';
+          
+          // Success - trigger slide up animation and navigate
+          document.querySelector('.unlock-container').classList.add('slide-up');
+          
+          // Wait for animation to complete, then navigate
+          setTimeout(() => {
+            window.location.href = redirectPage;
+          }, 600);
+        } else {
+          // Show error
+          errorMessage.textContent = result.error || 'Invalid master password';
+          errorMessage.classList.add('show');
+          
+          // Reset form
+          unlockButton.innerHTML = 'Unlock';
+          unlockButton.disabled = false;
+          document.getElementById('masterPasswordInput').value = '';
+          document.getElementById('masterPasswordInput').focus();
+        }
+      } catch (error) {
+        console.error('Unlock error:', error);
+        errorMessage.textContent = 'Failed to unlock. Please try again.';
+        errorMessage.classList.add('show');
+        
+        // Reset form
+        unlockButton.innerHTML = 'Unlock';
+        unlockButton.disabled = false;
+        document.getElementById('masterPasswordInput').value = '';
+        document.getElementById('masterPasswordInput').focus();
+      }
+      
+      isUnlocking = false;
+    }
+
+    // Form submission handler
+    document.getElementById('unlockForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const masterPassword = document.getElementById('masterPasswordInput').value.trim();
+      
+      if (!masterPassword) {
+        const errorMessage = document.getElementById('errorMessage');
+        errorMessage.textContent = 'Please enter your master password';
+        errorMessage.classList.add('show');
+        return;
+      }
+      
+      await unlockApp(masterPassword);
+    });
+
+    // Enter key handler for password input
+    document.getElementById('masterPasswordInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        document.getElementById('unlockForm').dispatchEvent(new Event('submit'));
+      }
+    });
+
+    // Initialize page when loaded
+    document.addEventListener('DOMContentLoaded', initializeUnlockPage);
+  </script>
+</body>
+</html>

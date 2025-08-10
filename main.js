@@ -4,21 +4,12 @@ const path = require('path');
 const Store = require('electron-store');
 const fs = require('fs');
 const os = require('os');
+const S3Sync = require('./s3_sync.js');
 
 // Initialize stores
 const passwordStore = new Store({
-  name: 'passwords',
-  defaults: {
-    passwords: [
-      { 
-        id: 1, 
-        title: 'Welcome', 
-        website: 'Welcome to SyncPass', 
-        username: 'demo@example.com', 
-        password: 'Welcome123!' 
-      }
-    ]
-  }
+  name: 'syncpass_password_store',
+  defaults: {}
 });
 
 // Debug: Log store path and initial contents
@@ -31,11 +22,15 @@ const settingsPath = path.join(os.homedir(), '.syncpass-settings.yml');
 class SettingsManager {
   constructor() {
     this.defaultSettings = {
-      autoLockTimeout: '15',
+      autoLockTimeout: '30',
       showPasswordStrength: false,
       clipboardAutoClear: true,
       darkMode: false,
-      password_set: false
+      password_set: false,
+      s3AccessKey: '',
+      s3SecretKey: '',
+      s3BucketName: '',
+      s3Region: 'us-east-1'
     };
   }
   
@@ -69,6 +64,11 @@ class SettingsManager {
     yaml += `clipboardAutoClear: ${settings.clipboardAutoClear}\n`;
     yaml += `darkMode: ${settings.darkMode}\n`;
     yaml += `password_set: ${settings.password_set}\n`;
+    yaml += `\n# Amazon S3 Backup Configuration\n`;
+    yaml += `s3AccessKey: "${settings.s3AccessKey || ''}"\n`;
+    yaml += `s3SecretKey: "${settings.s3SecretKey || ''}"\n`;
+    yaml += `s3BucketName: "${settings.s3BucketName || ''}"\n`;
+    yaml += `s3Region: "${settings.s3Region || 'us-east-1'}"\n`;
     yaml += `\n# Last updated: ${new Date().toISOString()}\n`;
     return yaml;
   }
@@ -85,7 +85,7 @@ class SettingsManager {
       if (key && value) {
         if (['showPasswordStrength', 'clipboardAutoClear', 'darkMode', 'password_set'].includes(key)) {
           settings[key] = value === 'true';
-        } else if (key === 'autoLockTimeout') {
+        } else if (['autoLockTimeout', 's3AccessKey', 's3SecretKey', 's3BucketName', 's3Region'].includes(key)) {
           settings[key] = value.replace(/"/g, '');
         }
       }
@@ -100,72 +100,251 @@ const settingsManager = new SettingsManager();
 // Store master password in memory during session for re-encryption on close
 let sessionMasterPassword = null;
 
+// Store S3 settings in main process memory (not in window)
+let s3Settings = {
+  accessKey: '',
+  secretKey: '',
+  bucketName: '',
+  region: 'us-east-1'
+};
+
+// SECURITY: ALWAYS clear any plain passwords on startup - force encryption only
+function clearPlainPasswordsOnStartup() {
+  const settings = settingsManager.loadSettings();
+  const hasEncryptedPasswords = passwordStore.has('passwords_encrypted');
+  const hasPlainPasswords = passwordStore.has('passwords');
+  
+  console.log('=== SECURITY STARTUP PASSWORD CLEANUP ===');
+  console.log('Settings password_set:', settings.password_set);
+  console.log('Has encrypted passwords:', hasEncryptedPasswords);
+  console.log('Has plain passwords:', hasPlainPasswords);
+  
+  // SECURITY: ALWAYS clear plain passwords on startup - force encryption only
+  if (hasPlainPasswords) {
+    console.log('SECURITY: Clearing ALL plain passwords on startup for maximum security');
+    passwordStore.delete('passwords');
+    
+    // Force the store to persist the cleanup immediately
+    try {
+      if (hasEncryptedPasswords) {
+        passwordStore.store = { passwords_encrypted: passwordStore.get('passwords_encrypted') };
+        console.log('SECURITY: Forced cleanup - only encrypted data persists');
+      } else {
+        passwordStore.store = {};
+        console.log('SECURITY: Forced cleanup - no passwords persist unencrypted');
+      }
+    } catch (error) {
+      console.error('Failed to force store cleanup:', error);
+    }
+    
+    console.log('SECURITY: All plain passwords cleared from startup');
+  }
+  
+  // Fix the password_set setting if encrypted passwords exist
+  if (hasEncryptedPasswords && !settings.password_set) {
+    console.log('Fixing password_set setting - encrypted passwords exist');
+    settings.password_set = true;
+    settingsManager.saveSettings(settings);
+  }
+  
+  if (!hasEncryptedPasswords && !hasPlainPasswords) {
+    console.log('SECURITY: Clean state - no passwords found');
+  }
+  
+  // ALWAYS clear session master password on startup for security
+  sessionMasterPassword = null;
+}
+
+// Call cleanup on startup
+clearPlainPasswordsOnStartup();
+
+// Load S3 settings into memory on startup
+function loadS3SettingsIntoMemory() {
+  const settings = settingsManager.loadSettings();
+  s3Settings.accessKey = settings.s3AccessKey || '';
+  s3Settings.secretKey = settings.s3SecretKey || '';
+  s3Settings.bucketName = settings.s3BucketName || '';
+  s3Settings.region = settings.s3Region || 'us-east-1';
+  console.log('S3 settings loaded into main process memory');
+}
+
+// Load S3 settings on startup
+loadS3SettingsIntoMemory();
+
 // IPC handlers for password operations
 ipcMain.handle('get-passwords', () => {
   const settings = settingsManager.loadSettings();
   const hasEncryptedPasswords = passwordStore.has('passwords_encrypted');
   const hasPlainPasswords = passwordStore.has('passwords');
   
-  // If master password is set and we have encrypted data, only return passwords if they're temporarily decrypted
-  if (settings.password_set && hasEncryptedPasswords) {
-    if (hasPlainPasswords) {
-      // Passwords are temporarily decrypted in memory
+  console.log('=== GET PASSWORDS REQUEST ===');
+  console.log('Settings password_set:', settings.password_set);
+  console.log('Has encrypted passwords:', hasEncryptedPasswords);
+  console.log('Has plain passwords:', hasPlainPasswords);
+  console.log('Session master password available:', !!sessionMasterPassword);
+  
+  // If encrypted passwords exist, ALWAYS require unlock - regardless of settings
+  if (hasEncryptedPasswords) {
+    if (hasPlainPasswords && sessionMasterPassword) {
+      // Passwords are temporarily decrypted in memory AND we have valid session
+      console.log('Returning temporarily decrypted passwords (valid session)');
       return passwordStore.get('passwords');
     } else {
-      // Passwords are locked, return empty array
+      // Passwords are locked or no valid session, return empty array
+      console.log('Passwords are locked or no valid session, returning empty array');
       return [];
     }
   }
   
-  // No master password set, return normal passwords
-  return passwordStore.get('passwords') || [];
+  // No encrypted passwords exist, return normal passwords
+  console.log('No encrypted passwords exist, returning normal passwords');
+  const passwords = passwordStore.get('passwords');
+  
+  // If no passwords exist at all, return empty array - no welcome passwords for security
+  if (!passwords || passwords.length === 0) {
+    console.log('No passwords found - returning empty array for security');
+    return [];
+  }
+  
+  return passwords;
 });
 
 ipcMain.handle('set-passwords', (event, passwords) => {
-  console.log('Setting passwords:', passwords);
-  passwordStore.set('passwords', passwords);
-  console.log('Passwords set, store now contains:', passwordStore.get('passwords'));
-  return true;
+  console.log('Setting passwords - SECURITY: Only in memory, never unencrypted to disk');
+  
+  // SECURITY: NEVER save unencrypted passwords to disk
+  // Only keep in memory temporarily and ONLY save encrypted version
+  if (!sessionMasterPassword) {
+    console.error('SECURITY: Cannot set passwords without master password session');
+    return { success: false, error: 'Master password required' };
+  }
+
+  try {
+    // Encrypt immediately and save only encrypted version
+    const passwordsJson = JSON.stringify(passwords);
+    const encryptedPasswords = CryptoJS.AES.encrypt(passwordsJson, sessionMasterPassword).toString();
+    passwordStore.set('passwords_encrypted', encryptedPasswords);
+    
+    // Keep in memory ONLY for current session
+    passwordStore.set('passwords', passwords);
+    
+    console.log('SECURITY: Passwords encrypted and saved securely');
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to encrypt and save passwords:', error);
+    return { success: false, error: error.message };
+  }
 });
 
 ipcMain.handle('add-password', (event, passwordData) => {
-  console.log('Adding password:', passwordData);
-  const passwords = passwordStore.get('passwords');
-  console.log('Current passwords before add:', passwords);
-  const newId = Math.max(...passwords.map(p => p.id)) + 1;
+  console.log('Adding password - SECURITY: Requires encryption');
+  
+  if (!sessionMasterPassword) {
+    console.error('SECURITY: Cannot add password without master password session');
+    return { success: false, error: 'Master password required' };
+  }
+  
+  const passwords = passwordStore.get('passwords') || [];
+  
+  console.log('Current passwords before add:', passwords.length);
+  // Handle case where this is the first password
+  const newId = passwords.length > 0 ? Math.max(...passwords.map(p => p.id)) + 1 : 1;
   const newPassword = { id: newId, ...passwordData };
   passwords.push(newPassword);
-  passwordStore.set('passwords', passwords);
-  console.log('Passwords after add:', passwordStore.get('passwords'));
-  return newPassword;
+  
+  try {
+    // SECURITY: Always encrypt before saving
+    const passwordsJson = JSON.stringify(passwords);
+    const encryptedPasswords = CryptoJS.AES.encrypt(passwordsJson, sessionMasterPassword).toString();
+    passwordStore.set('passwords_encrypted', encryptedPasswords);
+    
+    // Keep in memory ONLY for current session
+    passwordStore.set('passwords', passwords);
+    
+    console.log('SECURITY: Password added and encrypted');
+    return { success: true, password: newPassword };
+  } catch (error) {
+    console.error('Failed to encrypt password:', error);
+    return { success: false, error: error.message };
+  }
 });
 
 ipcMain.handle('update-password', (event, id, updatedData) => {
-  console.log('Updating password ID:', id, 'with data:', updatedData);
+  console.log('Updating password ID:', id, '- SECURITY: Requires encryption');
+  
+  if (!sessionMasterPassword) {
+    console.error('SECURITY: Cannot update password without master password session');
+    return { success: false, error: 'Master password required' };
+  }
+  
   const passwords = passwordStore.get('passwords');
+  
+  if (!passwords) {
+    console.error('No passwords in memory - cannot update password');
+    return { success: false, error: 'No passwords loaded' };
+  }
+  
   const passwordIndex = passwords.findIndex(p => p.id === id);
   if (passwordIndex !== -1) {
     passwords[passwordIndex] = { ...passwords[passwordIndex], ...updatedData };
-    passwordStore.set('passwords', passwords);
-    console.log('Password updated, store now contains:', passwordStore.get('passwords'));
-    return passwords[passwordIndex];
+    
+    try {
+      // SECURITY: Always encrypt before saving
+      const passwordsJson = JSON.stringify(passwords);
+      const encryptedPasswords = CryptoJS.AES.encrypt(passwordsJson, sessionMasterPassword).toString();
+      passwordStore.set('passwords_encrypted', encryptedPasswords);
+      
+      // Keep in memory ONLY for current session
+      passwordStore.set('passwords', passwords);
+      
+      console.log('SECURITY: Password updated and encrypted');
+      return { success: true, password: passwords[passwordIndex] };
+    } catch (error) {
+      console.error('Failed to encrypt updated password:', error);
+      return { success: false, error: error.message };
+    }
   }
   console.log('Password not found for update');
-  return null;
+  return { success: false, error: 'Password not found' };
 });
 
 ipcMain.handle('delete-password', (event, id) => {
-  console.log('Deleting password ID:', id);
+  console.log('Deleting password ID:', id, '- SECURITY: Requires encryption');
+  
+  if (!sessionMasterPassword) {
+    console.error('SECURITY: Cannot delete password without master password session');
+    return { success: false, error: 'Master password required' };
+  }
+  
   const passwords = passwordStore.get('passwords');
+  
+  if (!passwords) {
+    console.error('No passwords in memory - cannot delete password');
+    return { success: false, error: 'No passwords loaded' };
+  }
+  
   const index = passwords.findIndex(p => p.id === id);
   if (index !== -1) {
     const deleted = passwords.splice(index, 1)[0];
-    passwordStore.set('passwords', passwords);
-    console.log('Password deleted, store now contains:', passwordStore.get('passwords'));
-    return deleted;
+    
+    try {
+      // SECURITY: Always encrypt before saving
+      const passwordsJson = JSON.stringify(passwords);
+      const encryptedPasswords = CryptoJS.AES.encrypt(passwordsJson, sessionMasterPassword).toString();
+      passwordStore.set('passwords_encrypted', encryptedPasswords);
+      
+      // Keep in memory ONLY for current session
+      passwordStore.set('passwords', passwords);
+      
+      console.log('SECURITY: Password deleted and encrypted');
+      return { success: true, deleted: deleted };
+    } catch (error) {
+      console.error('Failed to encrypt after password deletion:', error);
+      return { success: false, error: error.message };
+    }
   }
   console.log('Password not found for deletion');
-  return null;
+  return { success: false, error: 'Password not found' };
 });
 
 // IPC handlers for settings operations
@@ -174,7 +353,18 @@ ipcMain.handle('get-settings', () => {
 });
 
 ipcMain.handle('save-settings', (event, settings) => {
-  return settingsManager.saveSettings(settings);
+  const result = settingsManager.saveSettings(settings);
+  
+  // Update S3 settings in main process memory when settings are saved
+  if (result) {
+    s3Settings.accessKey = settings.s3AccessKey || '';
+    s3Settings.secretKey = settings.s3SecretKey || '';
+    s3Settings.bucketName = settings.s3BucketName || '';
+    s3Settings.region = settings.s3Region || 'us-east-1';
+    console.log('S3 settings updated in main process memory');
+  }
+  
+  return result;
 });
 
 // IPC handler for encryption
@@ -239,10 +429,7 @@ ipcMain.handle('set-master-password', async (event, masterPassword) => {
     const passwordsJson = JSON.stringify(currentPasswords);
     const encryptedPasswords = CryptoJS.AES.encrypt(passwordsJson, masterPassword).toString();
     
-    // Clear the store completely first
-    passwordStore.clear();
-    
-    // Store only the encrypted passwords
+    // Store the encrypted passwords (keep plain passwords in memory for now)
     passwordStore.set('passwords_encrypted', encryptedPasswords);
     
     // Update settings to indicate password is set
@@ -250,10 +437,10 @@ ipcMain.handle('set-master-password', async (event, masterPassword) => {
     settings.password_set = true;
     settingsManager.saveSettings(settings);
     
-    // Store master password in session memory for re-encryption on close
+    // Store master password in session memory for future operations
     sessionMasterPassword = masterPassword;
     
-    console.log('Master password set successfully, all password data encrypted and unencrypted data removed');
+    console.log('Master password set successfully, passwords encrypted and session established');
     return { success: true };
   } catch (error) {
     console.error('Failed to set master password:', error);
@@ -264,28 +451,67 @@ ipcMain.handle('set-master-password', async (event, masterPassword) => {
 // IPC handler for unlocking with master password
 ipcMain.handle('unlock-with-master-password', async (event, masterPassword) => {
   try {
-    const encryptedPasswords = passwordStore.get('passwords_encrypted');
+    console.log('=== UNLOCK WITH MASTER PASSWORD ATTEMPT ===');
     
-    if (!encryptedPasswords) {
-      throw new Error('No encrypted passwords found');
+    // Check what we have in the store
+    const encryptedPasswords = passwordStore.get('passwords_encrypted');
+    const plainPasswords = passwordStore.get('passwords');
+    const settings = settingsManager.loadSettings();
+    
+    console.log('Has encrypted passwords:', !!encryptedPasswords);
+    console.log('Has plain passwords:', !!plainPasswords);
+    console.log('Settings password_set:', settings.password_set);
+    
+    let passwordsToDecrypt = encryptedPasswords;
+    
+    // If we have encrypted passwords, try to decrypt them
+    if (encryptedPasswords) {
+      console.log('Found encrypted passwords, attempting to decrypt');
+    } else if (plainPasswords && plainPasswords.length > 0) {
+      // If no encrypted passwords but we have plain passwords, encrypt them first
+      console.log('No encrypted passwords found, but plain passwords exist - encrypting them with provided password');
+      
+      const passwordsJson = JSON.stringify(plainPasswords);
+      passwordsToDecrypt = CryptoJS.AES.encrypt(passwordsJson, masterPassword).toString();
+      
+      // Save encrypted version
+      passwordStore.set('passwords_encrypted', passwordsToDecrypt);
+      
+      // Update settings to indicate password is now set
+      settings.password_set = true;
+      settingsManager.saveSettings(settings);
+      
+      console.log('Plain passwords encrypted and saved');
+    } else {
+      // No passwords at all - this should redirect to main app like a fresh install
+      console.log('No passwords found - treating as fresh install');
+      return { success: true, redirect: 'index.html', passwords: [] };
     }
     
-    // Decrypt passwords
-    const decrypted = CryptoJS.AES.decrypt(encryptedPasswords, masterPassword);
+    // Attempt to decrypt the passwords
+    console.log('Attempting to decrypt passwords');
+    const decrypted = CryptoJS.AES.decrypt(passwordsToDecrypt, masterPassword);
     const decryptedText = decrypted.toString(CryptoJS.enc.Utf8);
     
     if (!decryptedText) {
-      throw new Error('Invalid master password');
+      throw new Error('Invalid master password - decryption failed');
     }
     
-    const passwords = JSON.parse(decryptedText);
+    let passwords;
+    try {
+      passwords = JSON.parse(decryptedText);
+    } catch (parseError) {
+      throw new Error('Invalid master password - corrupted decrypted data');
+    }
     
-    // Temporarily store decrypted passwords in memory
+    // Store decrypted passwords temporarily in memory
     passwordStore.set('passwords', passwords);
     
-    // Store master password in session memory for re-encryption on close
+    // Store master password in session memory for re-encryption operations
     sessionMasterPassword = masterPassword;
     
+    console.log('Passwords unlocked successfully, session established');
+    console.log('Unlocked', passwords.length, 'passwords');
     return { success: true, passwords };
   } catch (error) {
     console.error('Failed to unlock with master password:', error);
@@ -307,11 +533,11 @@ ipcMain.handle('reset-master-password', async (event, newMasterPassword) => {
     const passwordsJson = JSON.stringify(currentPasswords);
     const encryptedPasswords = CryptoJS.AES.encrypt(passwordsJson, newMasterPassword).toString();
     
-    // Clear the store completely first
-    passwordStore.clear();
-    
-    // Store only the encrypted passwords with new password
+    // Store the re-encrypted passwords with new password
     passwordStore.set('passwords_encrypted', encryptedPasswords);
+    
+    // Re-store the passwords in memory for current session
+    passwordStore.set('passwords', currentPasswords);
     
     // Ensure settings still show password is set
     const settings = settingsManager.loadSettings();
@@ -336,24 +562,350 @@ ipcMain.handle('check-password-data', () => {
     const hasEncryptedPasswords = passwordStore.has('passwords_encrypted');
     const hasPlainPasswords = passwordStore.has('passwords');
     
-    // If master password is set, clear any temporarily decrypted passwords on startup
-    if (settings.password_set && hasEncryptedPasswords && hasPlainPasswords) {
-      console.log('Clearing temporary decrypted passwords on startup');
-      passwordStore.delete('passwords');
+    console.log('=== CHECK PASSWORD DATA ===');
+    console.log('Has encrypted passwords:', hasEncryptedPasswords);
+    console.log('Has plain passwords:', hasPlainPasswords);
+    console.log('Session master password available:', !!sessionMasterPassword);
+    
+    // Fix password_set setting if encrypted passwords exist but setting is wrong
+    let actualPasswordSet = settings.password_set;
+    if (hasEncryptedPasswords && !settings.password_set) {
+      console.log('Fixing password_set setting - encrypted passwords exist');
+      actualPasswordSet = true;
+      const updatedSettings = { ...settings, password_set: true };
+      settingsManager.saveSettings(updatedSettings);
     }
     
-    // Recalculate after potential cleanup
-    const hasPlainPasswordsAfterCleanup = passwordStore.has('passwords');
-    
-    return {
-      success: true,
-      password_set: settings.password_set,
-      has_encrypted: hasEncryptedPasswords,
-      has_plain: hasPlainPasswordsAfterCleanup,
-      needs_password: settings.password_set && hasEncryptedPasswords
-    };
+    // If we have encrypted passwords, check if they are currently unlocked
+    if (hasEncryptedPasswords) {
+      if (hasPlainPasswords && sessionMasterPassword) {
+        // Passwords are currently unlocked and we have session key
+        console.log('Passwords are currently unlocked - allowing access');
+        return {
+          success: true,
+          password_set: actualPasswordSet,
+          has_encrypted: hasEncryptedPasswords,
+          has_plain: hasPlainPasswords,
+          needs_password: false // Don't need password - already unlocked
+        };
+      } else {
+        // Passwords are locked or session expired
+        console.log('Passwords are locked - need unlock');
+        return {
+          success: true,
+          password_set: actualPasswordSet,
+          has_encrypted: hasEncryptedPasswords,
+          has_plain: hasPlainPasswords,
+          needs_password: true // Need password
+        };
+      }
+    } else {
+      // No encrypted passwords exist
+      return {
+        success: true,
+        password_set: actualPasswordSet,
+        has_encrypted: hasEncryptedPasswords,
+        has_plain: hasPlainPasswords,
+        needs_password: false // No password needed
+      };
+    }
   } catch (error) {
     console.error('Failed to check password data:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// IPC handler for S3 sync - ONLY syncs encrypted data for security
+ipcMain.handle('sync-to-s3', async () => {
+  try {
+    console.log('=== S3 ENCRYPTED SYNC REQUESTED ===');
+    
+    // Validate S3 settings
+    if (!s3Settings.accessKey || !s3Settings.secretKey || !s3Settings.bucketName) {
+      throw new Error('S3 configuration incomplete. Please check your settings: Access Key, Secret Key, and Bucket Name are required.');
+    }
+    
+    // Check if we have any passwords locally (encrypted or in memory)
+    const currentPasswords = passwordStore.get('passwords');
+    const hasEncryptedPasswords = passwordStore.has('passwords_encrypted');
+    const hasAnyPasswords = (currentPasswords && currentPasswords.length > 0) || hasEncryptedPasswords;
+    
+    // If NO passwords found locally, try to download from S3 instead
+    if (!hasAnyPasswords) {
+      console.log('No local passwords found - attempting to download from S3 instead');
+      
+      try {
+        // Create S3Sync instance with settings from memory
+        const s3Sync = new S3Sync(s3Settings.region, s3Settings.accessKey, s3Settings.secretKey);
+        const objectKey = 'syncpass_encrypted_backup.json';
+        
+        // Create temporary file for download
+        const tempPath = path.join(os.tmpdir(), 'syncpass_download_backup.json');
+        
+        console.log('Downloading encrypted backup from S3 bucket:', s3Settings.bucketName);
+        
+        // Download the backup file
+        await s3Sync.downloadFile(s3Settings.bucketName, objectKey, tempPath);
+        
+        // Read and parse the backup
+        const backupContent = fs.readFileSync(tempPath, 'utf8');
+        const backup = JSON.parse(backupContent);
+        
+        // Clean up temporary file
+        try {
+          fs.unlinkSync(tempPath);
+        } catch (cleanupError) {
+          console.error('Failed to clean up temporary file:', cleanupError);
+        }
+        
+        // Validate backup structure
+        if (!backup.encrypted_passwords) {
+          throw new Error('Invalid backup file: missing encrypted passwords');
+        }
+        
+        // Check if the encrypted backup actually contains passwords by trying to decrypt a test
+        // We can't fully decrypt without the password, but we can check if it's empty
+        const encryptedData = backup.encrypted_passwords;
+        
+        // Store the encrypted passwords locally
+        passwordStore.set('passwords_encrypted', encryptedData);
+        
+        // Update settings to indicate password is set
+        const settings = settingsManager.loadSettings();
+        settings.password_set = true;
+        settingsManager.saveSettings(settings);
+        
+        console.log('Downloaded encrypted backup successfully');
+        
+        // Always redirect to unlock screen since we have encrypted data that needs to be unlocked
+        return { 
+          success: true, 
+          result: 'downloaded',
+          message: 'Encrypted backup downloaded from S3.',
+          redirect_to_unlock: true
+        };
+      } catch (downloadError) {
+        console.error('Failed to download from S3:', downloadError);
+        
+        // If no backup exists on S3, that's normal for a fresh install - go to main screen
+        if (downloadError.message && downloadError.message.includes('NoSuchKey')) {
+          console.log('No backup found on S3 - normal for fresh install');
+          return {
+            success: true,
+            result: 'no_backup_found',
+            message: 'No backup found on S3. Starting fresh.',
+            redirect_to_main: true
+          };
+        }
+        
+        return {
+          success: false,
+          error: `No local passwords found and failed to download from S3: ${downloadError.message}`
+        };
+      }
+    }
+    
+    // If we have current passwords in memory but no encrypted version and we have a session password
+    if (currentPasswords && currentPasswords.length > 0 && !hasEncryptedPasswords && sessionMasterPassword) {
+      console.log('Encrypting current passwords before backup');
+      const passwordsJson = JSON.stringify(currentPasswords);
+      const encryptedPasswords = CryptoJS.AES.encrypt(passwordsJson, sessionMasterPassword).toString();
+      passwordStore.set('passwords_encrypted', encryptedPasswords);
+      
+      // Update settings to indicate password is set
+      const settings = settingsManager.loadSettings();
+      settings.password_set = true;
+      settingsManager.saveSettings(settings);
+    }
+    
+    // Check if we have encrypted passwords to backup
+    const encryptedPasswords = passwordStore.get('passwords_encrypted');
+    if (!encryptedPasswords) {
+      throw new Error('No encrypted passwords found. Please set a master password first before backing up.');
+    }
+    
+    console.log('S3 settings validated, attempting encrypted sync to bucket:', s3Settings.bucketName);
+    
+    // Create secure backup object with only encrypted data
+    const secureBackup = {
+      encrypted_passwords: encryptedPasswords
+    };
+    
+    // Save encrypted backup to a persistent file that can be synced
+    const backupPath = path.join(os.homedir(), '.syncpass_encrypted_backup.json');
+    fs.writeFileSync(backupPath, JSON.stringify(secureBackup, null, 2), 'utf8');
+    
+    console.log('Saved encrypted backup file:', backupPath);
+    
+    // Create S3Sync instance with settings from memory
+    const s3Sync = new S3Sync(s3Settings.region, s3Settings.accessKey, s3Settings.secretKey);
+    
+    const objectKey = 'syncpass_encrypted_backup.json';
+    
+    console.log('Syncing encrypted backup to S3 bucket:', s3Settings.bucketName);
+    console.log('S3 object key:', objectKey);
+    
+    const syncResult = await s3Sync.syncFile(backupPath, s3Settings.bucketName, objectKey);
+    
+    console.log('Encrypted sync completed with result:', syncResult);
+    
+    return { 
+      success: true, 
+      result: syncResult,
+      message: `Encrypted backup ${syncResult}`
+    };
+  } catch (error) {
+    console.error('S3 encrypted sync failed:', error);
+    return { 
+      success: false, 
+      error: error.message 
+    };
+  }
+});
+
+// IPC handler for restoring from S3 backup - ONLY loads encrypted data for security
+ipcMain.handle('restore-from-s3', async () => {
+  try {
+    console.log('=== S3 ENCRYPTED RESTORE REQUESTED ===');
+    
+    // Validate S3 settings
+    if (!s3Settings.accessKey || !s3Settings.secretKey || !s3Settings.bucketName) {
+      throw new Error('S3 configuration incomplete. Please check your settings: Access Key, Secret Key, and Bucket Name are required.');
+    }
+    
+    console.log('S3 settings validated, attempting restore from bucket:', s3Settings.bucketName);
+    
+    // Create temporary file for download
+    const tempPath = path.join(os.tmpdir(), 'syncpass_restore_backup.json');
+    
+    try {
+      // Create S3Sync instance with settings from memory
+      const s3Sync = new S3Sync(s3Settings.region, s3Settings.accessKey, s3Settings.secretKey);
+      
+      const objectKey = 'syncpass_encrypted_backup.json';
+      
+      console.log('Downloading encrypted backup from S3 bucket:', s3Settings.bucketName);
+      console.log('S3 object key:', objectKey);
+      
+      // Download the backup file
+      await s3Sync.downloadFile(s3Settings.bucketName, objectKey, tempPath);
+      
+      // Read and parse the backup
+      const backupContent = fs.readFileSync(tempPath, 'utf8');
+      const backup = JSON.parse(backupContent);
+      
+      // Validate backup structure
+      if (!backup.encrypted_passwords) {
+        throw new Error('Invalid backup file: missing encrypted passwords');
+      }
+      
+      // Store the encrypted passwords (replacing any existing ones)
+      passwordStore.set('passwords_encrypted', backup.encrypted_passwords);
+      
+      // Clear any unencrypted passwords from memory for security
+      if (passwordStore.has('passwords')) {
+        passwordStore.delete('passwords');
+        console.log('Cleared any unencrypted passwords from memory for security');
+      }
+      
+      // Update settings to indicate password is set
+      const settings = settingsManager.loadSettings();
+      settings.password_set = true;
+      settingsManager.saveSettings(settings);
+      
+      // Clear session master password to force re-authentication
+      sessionMasterPassword = null;
+      
+      console.log('Encrypted backup restored successfully');
+      
+      return { 
+        success: true, 
+        message: 'Encrypted backup restored successfully. Please unlock with your master password.',
+        backup_timestamp: backup.backup_timestamp || 'Unknown'
+      };
+    } finally {
+      // Clean up temporary file
+      try {
+        if (fs.existsSync(tempPath)) {
+          fs.unlinkSync(tempPath);
+          console.log('Cleaned up temporary restore file');
+        }
+      } catch (cleanupError) {
+        console.error('Failed to clean up temporary file:', cleanupError);
+      }
+    }
+  } catch (error) {
+    console.error('S3 encrypted restore failed:', error);
+    return { 
+      success: false, 
+      error: error.message 
+    };
+  }
+});
+
+// IPC handler for clearing passwords from memory (lock function)
+ipcMain.handle('lock-passwords', () => {
+  try {
+    console.log('=== LOCKING PASSWORDS ===');
+    
+    const currentPasswords = passwordStore.get('passwords');
+    const hasEncryptedPasswords = passwordStore.has('passwords_encrypted');
+    
+    console.log('Current passwords count:', currentPasswords ? currentPasswords.length : 0);
+    console.log('Has encrypted passwords:', hasEncryptedPasswords);
+    console.log('Session master password available:', !!sessionMasterPassword);
+    
+    // If we have passwords but no encrypted version and no session master password,
+    // we need to prompt for master password to encrypt them
+    if (currentPasswords && currentPasswords.length > 0 && !hasEncryptedPasswords && !sessionMasterPassword) {
+      console.log('Passwords exist but no encryption setup - need master password');
+      return { 
+        success: false, 
+        error: 'master_password_required',
+        message: 'Master password required to encrypt passwords before locking'
+      };
+    }
+    
+    // If we have session master password, save current passwords as encrypted
+    if (currentPasswords && currentPasswords.length > 0 && sessionMasterPassword) {
+      console.log('Saving current passwords as encrypted before lock');
+      try {
+        const passwordsJson = JSON.stringify(currentPasswords);
+        const encryptedPasswords = CryptoJS.AES.encrypt(passwordsJson, sessionMasterPassword).toString();
+        passwordStore.set('passwords_encrypted', encryptedPasswords);
+        console.log('Current passwords saved as encrypted');
+        
+        // Update settings to indicate password is set
+        const settings = settingsManager.loadSettings();
+        if (!settings.password_set) {
+          settings.password_set = true;
+          settingsManager.saveSettings(settings);
+          console.log('Updated settings to indicate master password is set');
+        }
+      } catch (encryptError) {
+        console.error('Failed to save encrypted passwords on lock:', encryptError);
+        return { success: false, error: 'Failed to encrypt passwords: ' + encryptError.message };
+      }
+    }
+    
+    // Clear temporary passwords from memory
+    if (passwordStore.has('passwords')) {
+      passwordStore.delete('passwords');
+      console.log('Temporary passwords cleared from memory');
+    }
+    
+    // Clear session master password
+    sessionMasterPassword = null;
+    console.log('Session master password cleared');
+    
+    // Verify encrypted passwords are still on disk
+    const hasEncrypted = passwordStore.has('passwords_encrypted');
+    console.log('Encrypted passwords still on disk:', hasEncrypted);
+    
+    console.log('Lock completed - encrypted data saved, temporary data cleared');
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to lock passwords:', error);
     return { success: false, error: error.message };
   }
 });
@@ -362,6 +914,8 @@ function createWindow() {
   const win = new BrowserWindow({
     width: 1000,
     height: 800,
+    title: 'SyncPass',
+    icon: path.join(__dirname, 'icon.svg'),
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
@@ -369,7 +923,54 @@ function createWindow() {
     }
   });
 
-  win.loadFile('index.html');
+  // ALWAYS start with lock screen for maximum security
+  const settings = settingsManager.loadSettings();
+  const hasEncryptedPasswords = passwordStore.has('passwords_encrypted');
+  const hasPlainPasswords = passwordStore.has('passwords');
+  
+  console.log('=== STARTUP DECISION LOGIC ===');
+  console.log('Settings password_set:', settings.password_set);
+  console.log('Has encrypted passwords:', hasEncryptedPasswords);
+  console.log('Has plain passwords:', hasPlainPasswords);
+  console.log('ALWAYS starting with lock screen for security');
+  
+  // Clear any unencrypted passwords on startup for security if encrypted passwords exist
+  if (hasEncryptedPasswords && hasPlainPasswords) {
+    console.log('Clearing unencrypted passwords on startup for security');
+    passwordStore.delete('passwords');
+    
+    // Force the store to save immediately - only keep encrypted data
+    try {
+      passwordStore.store = { passwords_encrypted: passwordStore.get('passwords_encrypted') };
+      console.log('Forced cleanup of password store - only encrypted data remains');
+    } catch (error) {
+      console.error('Failed to force cleanup store:', error);
+    }
+  }
+  
+  // ALWAYS clear session master password on startup for security
+  sessionMasterPassword = null;
+  console.log('Cleared session master password on startup');
+  
+  // Ensure password_set is true if we have encrypted passwords
+  if (hasEncryptedPasswords && !settings.password_set) {
+    console.log('Fixing password_set setting - encrypted passwords exist');
+    settings.password_set = true;
+    settingsManager.saveSettings(settings);
+  }
+  
+  // ALWAYS start with unlock screen for maximum security
+  win.loadFile('unlock.html');
+  
+  // Clear any temporarily decrypted passwords when window is closed
+  win.on('closed', () => {
+    const settings = settingsManager.loadSettings();
+    if (settings.password_set) {
+      console.log('Window closed - clearing any temporary passwords from memory');
+      passwordStore.delete('passwords');
+      sessionMasterPassword = null;
+    }
+  });
 }
 
 app.whenReady().then(createWindow);
@@ -425,25 +1026,21 @@ app.on('before-quit', (event) => {
         console.log('No plain passwords to process - encrypted storage should already exist');
       }
     } else if (!settings.password_set && hasPlainPasswords && currentPasswords) {
-      // No master password set - save passwords normally to persistent storage
-      console.log('No master password - ensuring passwords are saved to persistent storage');
-      console.log('Saving passwords:', currentPasswords);
-      passwordStore.set('passwords', currentPasswords);
-      console.log('Passwords saved to store, verification:', passwordStore.get('passwords'));
+      // SECURITY: NEVER save unencrypted passwords - require encryption first
+      console.log('SECURITY: Cannot save unencrypted passwords - user must set master password first');
+      passwordStore.delete('passwords');
+      console.log('SECURITY: Cleared unencrypted passwords for security');
     } else if (!settings.password_set && (!hasPlainPasswords || !currentPasswords)) {
-      console.log('No master password set and no current passwords - using defaults');
-      // Ensure defaults are set
-      const defaultPasswords = [
-        { 
-          id: 1, 
-          title: 'Welcome', 
-          website: 'Welcome to SyncPass', 
-          username: 'demo@example.com', 
-          password: 'Welcome123!' 
-        }
-      ];
-      passwordStore.set('passwords', defaultPasswords);
-      console.log('Default passwords set');
+      console.log('SECURITY: No passwords to save - clean state');
+    }
+    
+    // SECURITY: If master password is set, NEVER save plain passwords to disk
+    if (settings.password_set && hasEncryptedPasswords) {
+      console.log('SECURITY: Ensuring no plain passwords are saved to disk when master password is set');
+      if (passwordStore.has('passwords')) {
+        passwordStore.delete('passwords');
+        console.log('Removed any plain passwords from persistent storage for security');
+      }
     }
     
     // Force store to flush to disk
