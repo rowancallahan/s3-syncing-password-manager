@@ -2,6 +2,11 @@
 
 Reviewed: 2026-08-25. Scope: `main.js`, `preload.js`, `s3_sync.js`, `index.html`, `unlock.html`, `package.json`.
 
+> **Update:** the four Critical issues below have been fixed on this branch —
+> see `SECURITY_LESSONS.md` for what changed, the principles behind each fix,
+> and a reading list. The "Significant" and "Minor" items remain open unless
+> noted there.
+
 ## Verdict
 
 The high-level architecture is sound: an Electron app with a locked-down renderer, a

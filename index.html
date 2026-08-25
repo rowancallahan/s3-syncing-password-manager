@@ -1830,8 +1830,8 @@
                         throw new Error('Passwords do not match');
                     }
                     
-                    if (password.length < 6) {
-                        throw new Error('Master password must be at least 6 characters long');
+                    if (password.length < 12) {
+                        throw new Error('Master password must be at least 12 characters long');
                     }
                     
                     const result = await window.electronAPI.setMasterPassword(password);
@@ -1862,8 +1862,8 @@
                         throw new Error('Passwords do not match');
                     }
                     
-                    if (newPassword.length < 6) {
-                        throw new Error('Master password must be at least 6 characters long');
+                    if (newPassword.length < 12) {
+                        throw new Error('Master password must be at least 12 characters long');
                     }
                     
                     const result = await window.electronAPI.resetMasterPassword(newPassword);
@@ -1949,9 +1949,14 @@
                 document.getElementById('clipboardAutoClear').checked = this.settings.clipboardAutoClear;
                 document.getElementById('darkMode').checked = this.settings.darkMode;
                 
-                // Apply S3 settings
+                // Apply S3 settings. The secret key is never sent back to this
+                // window - only whether one is stored.
                 document.getElementById('s3AccessKey').value = this.settings.s3AccessKey || '';
-                document.getElementById('s3SecretKey').value = this.settings.s3SecretKey || '';
+                const s3SecretInput = document.getElementById('s3SecretKey');
+                s3SecretInput.value = '';
+                s3SecretInput.placeholder = this.settings.s3SecretKeySet
+                    ? 'Saved - enter a new key to replace it'
+                    : 'Your AWS Secret Access Key';
                 document.getElementById('s3BucketName').value = this.settings.s3BucketName || '';
                 document.getElementById('s3Region').value = this.settings.s3Region || '';
                 
@@ -1990,7 +1995,17 @@
                 try {
                     const success = await window.electronAPI.saveSettings(this.settings);
                     if (success) {
-                        console.log('Settings saved to YAML file:', this.settings);
+                        console.log('Settings saved');
+                        // Don't keep or redisplay the secret after it's stored.
+                        const s3SecretInput = document.getElementById('s3SecretKey');
+                        if (s3SecretInput.value.trim()) {
+                            this.settings.s3SecretKeySet = true;
+                        }
+                        this.settings.s3SecretKey = '';
+                        s3SecretInput.value = '';
+                        s3SecretInput.placeholder = this.settings.s3SecretKeySet
+                            ? 'Saved - enter a new key to replace it'
+                            : 'Your AWS Secret Access Key';
                     } else {
                         alert('Failed to save settings');
                     }
@@ -2411,7 +2426,10 @@
                     }
                     
                     // Always overwrite - replace all passwords
-                    await window.electronAPI.setPasswords(passwords);
+                    const setResult = await window.electronAPI.setPasswords(passwords);
+                    if (!setResult || !setResult.success) {
+                        throw new Error((setResult && setResult.error) || 'Failed to save imported passwords');
+                    }
                     
                     // Refresh UI
                     await this.renderPasswordList();
@@ -2634,6 +2652,18 @@
                 }
             }
 
+            // Cryptographically secure uniform integer in [0, maxExclusive).
+            // Math.random() is predictable and must not be used for passwords.
+            secureRandomInt(maxExclusive) {
+                const range = 0x100000000; // 2^32
+                const limit = Math.floor(range / maxExclusive) * maxExclusive;
+                const buf = new Uint32Array(1);
+                do {
+                    window.crypto.getRandomValues(buf);
+                } while (buf[0] >= limit); // rejection sampling avoids modulo bias
+                return buf[0] % maxExclusive;
+            }
+
             // Password Generation Methods
             generatePassword() {
                 const passwordType = document.querySelector('input[name="passwordType"]:checked').value;
@@ -2666,8 +2696,7 @@
                 for (let i = 0; i < wordCount; i++) {
                     let word;
                     do {
-                        const randomIndex = Math.floor(Math.random() * this.commonWords.length);
-                        word = this.commonWords[randomIndex];
+                        word = this.commonWords[this.secureRandomInt(this.commonWords.length)];
                     } while (this.containsExcludedChars(word, excludeChars));
                     words.push(word);
                 }
@@ -2676,7 +2705,7 @@
                 let password = words.join(separator);
                 
                 // Add random numbers at the end (1-999)
-                const randomNumbers = Math.floor(Math.random() * 999) + 1;
+                const randomNumbers = this.secureRandomInt(999) + 1;
                 password += randomNumbers;
                 
                 return password;
@@ -2700,7 +2729,7 @@
                 
                 let password = '';
                 for (let i = 0; i < length; i++) {
-                    password += chars.charAt(Math.floor(Math.random() * chars.length));
+                    password += chars.charAt(this.secureRandomInt(chars.length));
                 }
                 
                 return password;
@@ -2939,8 +2968,8 @@
                         return;
                     }
                     
-                    if (password.length < 6) {
-                        alert('Master password must be at least 6 characters long.');
+                    if (password.length < 12) {
+                        alert('Master password must be at least 12 characters long.');
                         return;
                     }
                     
