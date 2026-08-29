@@ -1,6 +1,8 @@
-const { S3Client, PutObjectCommand, GetObjectCommand, HeadObjectCommand } = require('@aws-sdk/client-s3');
-const fs = require('fs');
+const { S3Client, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
 
+// Thin S3 wrapper. The decision about which side wins a sync belongs to the
+// caller (main.js), which compares the logical vault timestamps stored inside
+// the backup payload — never file modification times.
 class S3Sync {
   constructor(region, accessKeyId, secretAccessKey) {
     this.s3 = new S3Client({
@@ -12,55 +14,35 @@ class S3Sync {
     });
   }
 
-  async syncFile(filePath, bucketName, objectKey) {
+  // Returns the parsed JSON object, or null when the object does not exist.
+  async downloadJson(bucketName, objectKey) {
+    let response;
     try {
-      const localStats = fs.statSync(filePath);
-      const localModified = localStats.mtime;
-      
-      let s3Modified;
-      try {
-        const headResponse = await this.s3.send(new HeadObjectCommand({
-          Bucket: bucketName,
-          Key: objectKey
-        }));
-        s3Modified = headResponse.LastModified;
-      } catch (error) {
-        s3Modified = null;
-      }
-      
-      if (!s3Modified) {
-        await this.uploadFile(filePath, bucketName, objectKey);
-        return 'uploaded';
-      } else if (s3Modified > localModified) {
-        await this.downloadFile(bucketName, objectKey, filePath);
-        return 'downloaded';
-      } else if (localModified > s3Modified) {
-        await this.uploadFile(filePath, bucketName, objectKey);
-        return 'uploaded';
-      } else {
-        return 'in-sync';
-      }
+      response = await this.s3.send(new GetObjectCommand({
+        Bucket: bucketName,
+        Key: objectKey
+      }));
     } catch (error) {
-      throw new Error(`Sync failed: ${error.message}`);
+      if (error.name === 'NoSuchKey' || (error.$metadata && error.$metadata.httpStatusCode === 404)) {
+        return null;
+      }
+      throw new Error(`Download failed: ${error.message}`);
     }
+    const body = await response.Body.transformToString('utf8');
+    return JSON.parse(body);
   }
 
-  async uploadFile(filePath, bucketName, objectKey) {
-    const fileContent = fs.readFileSync(filePath);
-    await this.s3.send(new PutObjectCommand({
-      Bucket: bucketName,
-      Key: objectKey,
-      Body: fileContent
-    }));
-  }
-
-  async downloadFile(bucketName, objectKey, localPath) {
-    const response = await this.s3.send(new GetObjectCommand({
-      Bucket: bucketName,
-      Key: objectKey
-    }));
-    const fileContent = await response.Body.transformToByteArray();
-    fs.writeFileSync(localPath, fileContent);
+  async uploadJson(bucketName, objectKey, payload) {
+    try {
+      await this.s3.send(new PutObjectCommand({
+        Bucket: bucketName,
+        Key: objectKey,
+        Body: JSON.stringify(payload, null, 2),
+        ContentType: 'application/json'
+      }));
+    } catch (error) {
+      throw new Error(`Upload failed: ${error.message}`);
+    }
   }
 }
 
